@@ -46,5 +46,5 @@ func Ed25519SKToCurve25519(secretKey []byte) ([]byte, error) {
 		return nil, errors.New("could not convert private key")
 	}
 
-	return nil, nil
+	return c25519, nil
 }

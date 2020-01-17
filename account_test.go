@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -53,13 +54,15 @@ func TestAccountCreateNewAccount(t *testing.T) {
 }
 
 func TestAccountCreateAccountFromKeys(t *testing.T) {
-	pk, ed25519SK, err := ed25519.GenerateKey(rand.Reader)
+	pk, sk, err := ed25519.GenerateKey(rand.Reader)
 	require.Nil(t, err)
 
-	account := AccountFromKey(ed25519SK)
+	account := AccountFromKey(pk, sk)
 	require.NotNil(t, account)
 
 	sig := account.Sign(testString)
+
+	fmt.Println(string(sig))
 
 	rawSig, err := base64.RawStdEncoding.DecodeString(string(sig))
 	require.Nil(t, err)

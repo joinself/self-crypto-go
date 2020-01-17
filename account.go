@@ -51,15 +51,26 @@ func NewAccount() (*Account, error) {
 }
 
 // AccountFromKey reconstructs an olm account from existing ed25519 secret key
-func AccountFromKey(ed25519SK ed25519.PrivateKey) *Account {
+func AccountFromKey(pk ed25519.PublicKey, sk ed25519.PrivateKey) *Account {
 	buf := make([]byte, C.olm_account_size())
 
-	ed25519KP := constructKeypair(ed25519SK, ed25519SK.Public().([]byte))
+	crvSK, err := Ed25519SKToCurve25519(sk)
+	if err != nil {
+		panic(err)
+	}
 
-	copy(buf[:len(ed25519KP)], ed25519KP)
-	//copy(buf[len(ed25519SK):], curve25519SK)
+	crvPK, err := Ed25519PKToCurve25519(pk)
+	if err != nil {
+		panic(err)
+	}
+
+	ed25519KP := constructKeypair(sk, pk)
+	curve25519KP := constructKeypair(crvSK, crvPK)
 
 	acc := C.olm_account(unsafe.Pointer(&buf[0]))
+
+	copy(buf[:len(ed25519KP)], ed25519KP)
+	copy(buf[len(ed25519KP):], curve25519KP)
 
 	return &Account{ptr: acc}
 }
