@@ -8,13 +8,12 @@ package olm
 import "C"
 import (
 	"crypto/ed25519"
-	"fmt"
+	"crypto/rand"
 	"unsafe"
 )
 
 // Account an olm account that stores the ed25519 and curve25519 secret keys
 type Account struct {
-	buf []byte
 	ptr *C.struct_OlmAccount
 }
 
@@ -22,7 +21,6 @@ func newAccount() *Account {
 	buf := make([]byte, C.olm_account_size())
 
 	return &Account{
-		buf: buf,
 		ptr: C.olm_account(unsafe.Pointer(&buf[0])),
 	}
 }
@@ -30,13 +28,11 @@ func newAccount() *Account {
 // NewAccount creates a new account with ed25519 and curve25519 secret keys
 func NewAccount() (*Account, error) {
 	acc := newAccount()
+
 	rlen := C.olm_create_account_random_length(acc.ptr)
 	rbuf := make([]byte, rlen)
 
-	//_, err := rand.Read(rbuf)
-
-	var zr zero
-	_, err := zr.Read(rbuf)
+	_, err := rand.Read(rbuf)
 	if err != nil {
 		return nil, err
 	}
@@ -47,46 +43,32 @@ func NewAccount() (*Account, error) {
 		rlen,
 	)
 
-	fmt.Println(acc.buf[:96])
-
-	return acc, nil
+	return acc, acc.lastError()
 }
 
 // AccountFromKey reconstructs an olm account from existing ed25519 secret key
-func AccountFromKey(pk ed25519.PublicKey, sk ed25519.PrivateKey) *Account {
-	buf := make([]byte, C.olm_account_size())
+func AccountFromKey(sk ed25519.PrivateKey) (*Account, error) {
+	// TODO : We would be better off converting the ed25519 key to curve25519
+	// and trying to implement the pickle/encoding format so there is a direct
+	// relation between the two keypairs.
 
-	crvSK, err := Ed25519SKToCurve25519(sk)
-	if err != nil {
-		panic(err)
-	}
+	acc := newAccount()
+	rlen := C.olm_create_account_random_length(acc.ptr)
 
-	crvPK, err := Ed25519PKToCurve25519(pk)
-	if err != nil {
-		panic(err)
-	}
+	seed := sk.Seed()
+	seed = append(seed, sk.Seed()...)
 
-	pks := joinKeys(pk, crvPK)
-	sks := joinKeys(crvSK, crvSK)
+	C.olm_create_account(
+		acc.ptr,
+		unsafe.Pointer(&seed[0]),
+		rlen,
+	)
 
-	acc := C.olm_account(unsafe.Pointer(&buf[0]))
-
-	copy(buf[:len(pks)], pks)
-	copy(buf[len(sks):], sks)
-
-	fmt.Println("ed sk", sk)
-	fmt.Println("ed pk", pk)
-	fmt.Println("cv sk", crvSK)
-	fmt.Println("cv pk", crvPK)
-
-	fmt.Println(buf[:192])
-	fmt.Println("----")
-
-	return &Account{ptr: acc}
+	return acc, acc.lastError()
 }
 
 // AccountFromPickle reconstructs an account from a pickle
-func AccountFromPickle(key string, pickle string) *Account {
+func AccountFromPickle(key string, pickle string) (*Account, error) {
 	acc := newAccount()
 
 	kbuf := []byte(key)
@@ -98,11 +80,11 @@ func AccountFromPickle(key string, pickle string) *Account {
 		unsafe.Pointer(&pbuf[0]), C.size_t(len(pbuf)),
 	)
 
-	return acc
+	return acc, acc.lastError()
 }
 
 // Pickle encodes and encrypts an account to a string safe format
-func (a Account) Pickle(key string) string {
+func (a Account) Pickle(key string) (string, error) {
 	kbuf := []byte(key)
 	pbuf := make([]byte, C.olm_pickle_account_length(a.ptr))
 
@@ -113,11 +95,11 @@ func (a Account) Pickle(key string) string {
 		unsafe.Pointer(&pbuf[0]), C.size_t(len(pbuf)),
 	)
 
-	return string(pbuf)
+	return string(pbuf), a.lastError()
 }
 
 // Sign signs a message with the accounts ed25519 secret key
-func (a Account) Sign(message []byte) []byte {
+func (a Account) Sign(message []byte) ([]byte, error) {
 	olen := C.olm_account_signature_length(a.ptr)
 	obuf := make([]byte, olen)
 
@@ -127,14 +109,10 @@ func (a Account) Sign(message []byte) []byte {
 		unsafe.Pointer(&obuf[0]), olen,
 	)
 
-	return obuf
+	return obuf, a.lastError()
 }
 
-func (a Account) lastError() string {
-	return C.GoString(C.olm_account_last_error(a.ptr))
-}
-
-func joinKeys(k1, k2 []byte) []byte {
-	// fmt.Println("secret key", sk)
-	return append(k1, k2...)
+func (a Account) lastError() error {
+	errStr := C.GoString(C.olm_account_last_error(a.ptr))
+	return Error(errStr)
 }
