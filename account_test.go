@@ -2,7 +2,6 @@ package olm
 
 import (
 	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"testing"
@@ -54,7 +53,8 @@ func TestAccountCreateNewAccount(t *testing.T) {
 }
 
 func TestAccountCreateAccountFromKeys(t *testing.T) {
-	pk, sk, err := ed25519.GenerateKey(rand.Reader)
+	var zr zero
+	pk, sk, err := ed25519.GenerateKey(zr)
 	require.Nil(t, err)
 
 	account := AccountFromKey(pk, sk)

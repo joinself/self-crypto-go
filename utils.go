@@ -5,6 +5,17 @@ package olm
 import "C"
 import "errors"
 
+type zero struct {
+}
+
+func (z zero) Read(b []byte) (int, error) {
+	for i := 0; i < len(b); i++ {
+		b[i] = byte(0)
+	}
+
+	return len(b), nil
+}
+
 // Ed25519PKToCurve25519 converts an Edwards 25519 public key to a Curve 25519 public key
 func Ed25519PKToCurve25519(publicKey []byte) ([]byte, error) {
 	if len(publicKey) < int(C.crypto_sign_publickeybytes()) {

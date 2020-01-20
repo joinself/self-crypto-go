@@ -8,7 +8,6 @@ package olm
 import "C"
 import (
 	"crypto/ed25519"
-	"crypto/rand"
 	"fmt"
 	"unsafe"
 )
@@ -34,7 +33,10 @@ func NewAccount() (*Account, error) {
 	rlen := C.olm_create_account_random_length(acc.ptr)
 	rbuf := make([]byte, rlen)
 
-	_, err := rand.Read(rbuf)
+	//_, err := rand.Read(rbuf)
+
+	var zr zero
+	_, err := zr.Read(rbuf)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +47,7 @@ func NewAccount() (*Account, error) {
 		rlen,
 	)
 
-	fmt.Println(acc.buf)
+	fmt.Println(acc.buf[:96])
 
 	return acc, nil
 }
@@ -64,13 +66,21 @@ func AccountFromKey(pk ed25519.PublicKey, sk ed25519.PrivateKey) *Account {
 		panic(err)
 	}
 
-	ed25519KP := constructKeypair(sk, pk)
-	curve25519KP := constructKeypair(crvSK, crvPK)
+	pks := joinKeys(pk, crvPK)
+	sks := joinKeys(crvSK, crvSK)
 
 	acc := C.olm_account(unsafe.Pointer(&buf[0]))
 
-	copy(buf[:len(ed25519KP)], ed25519KP)
-	copy(buf[len(ed25519KP):], curve25519KP)
+	copy(buf[:len(pks)], pks)
+	copy(buf[len(sks):], sks)
+
+	fmt.Println("ed sk", sk)
+	fmt.Println("ed pk", pk)
+	fmt.Println("cv sk", crvSK)
+	fmt.Println("cv pk", crvPK)
+
+	fmt.Println(buf[:192])
+	fmt.Println("----")
 
 	return &Account{ptr: acc}
 }
@@ -124,6 +134,7 @@ func (a Account) lastError() string {
 	return C.GoString(C.olm_account_last_error(a.ptr))
 }
 
-func constructKeypair(sk, pk []byte) []byte {
-	return append(pk, sk...)
+func joinKeys(k1, k2 []byte) []byte {
+	// fmt.Println("secret key", sk)
+	return append(k1, k2...)
 }
