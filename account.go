@@ -9,6 +9,7 @@ import "C"
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
 	"unsafe"
 )
 
@@ -76,8 +77,10 @@ func AccountFromPickle(key string, pickle string) (*Account, error) {
 
 	C.olm_unpickle_account(
 		acc.ptr,
-		unsafe.Pointer(&kbuf[0]), C.size_t(len(kbuf)),
-		unsafe.Pointer(&pbuf[0]), C.size_t(len(pbuf)),
+		unsafe.Pointer(&kbuf[0]),
+		C.size_t(len(kbuf)),
+		unsafe.Pointer(&pbuf[0]),
+		C.size_t(len(pbuf)),
 	)
 
 	return acc, acc.lastError()
@@ -91,8 +94,10 @@ func (a Account) Pickle(key string) (string, error) {
 	// this returns a result we should probably inspect
 	C.olm_pickle_account(
 		a.ptr,
-		unsafe.Pointer(&kbuf[0]), C.size_t(len(kbuf)),
-		unsafe.Pointer(&pbuf[0]), C.size_t(len(pbuf)),
+		unsafe.Pointer(&kbuf[0]),
+		C.size_t(len(kbuf)),
+		unsafe.Pointer(&pbuf[0]),
+		C.size_t(len(pbuf)),
 	)
 
 	return string(pbuf), a.lastError()
@@ -100,16 +105,82 @@ func (a Account) Pickle(key string) (string, error) {
 
 // Sign signs a message with the accounts ed25519 secret key
 func (a Account) Sign(message []byte) ([]byte, error) {
-	olen := C.olm_account_signature_length(a.ptr)
-	obuf := make([]byte, olen)
+	slen := C.olm_account_signature_length(a.ptr)
+	sbuf := make([]byte, slen)
 
 	C.olm_account_sign(
 		a.ptr,
-		unsafe.Pointer(&message[0]), C.size_t(len(message)),
-		unsafe.Pointer(&obuf[0]), olen,
+		unsafe.Pointer(&message[0]),
+		C.size_t(len(message)),
+		unsafe.Pointer(&sbuf[0]),
+		slen,
 	)
 
-	return obuf, a.lastError()
+	return sbuf, a.lastError()
+}
+
+// MaxOneTimeKeys returns the maximum amount of keys an account can hold
+func (a Account) MaxOneTimeKeys() int {
+	return int(C.olm_account_max_number_of_one_time_keys(a.ptr))
+}
+
+// MarkKeysAsPublished marks the current set of one time keys as published
+func (a Account) MarkKeysAsPublished() {
+	C.olm_account_mark_keys_as_published(a.ptr)
+}
+
+// GenerateOneTimeKeys Generate a number of new one-time keys.
+// If the total number of keys stored by this account exceeds
+// max_one_time_keys() then the old keys are discarded
+func (a Account) GenerateOneTimeKeys(count int) error {
+	rlen := C.olm_account_generate_one_time_keys_random_length(
+		a.ptr,
+		C.size_t(count),
+	)
+
+	rbuf := make([]byte, rlen)
+
+	_, err := rand.Read(rbuf)
+	if err != nil {
+		return err
+	}
+
+	C.olm_account_generate_one_time_keys(
+		a.ptr,
+		C.size_t(count),
+		unsafe.Pointer(&rbuf[0]),
+		rlen,
+	)
+
+	return a.lastError()
+}
+
+// OneTimeKeys returns the pulic component of the accounts one time keys
+func (a Account) OneTimeKeys() (map[string]interface{}, error) {
+	var otk map[string]interface{}
+
+	olen := C.olm_account_one_time_keys_length(a.ptr)
+	obuf := make([]byte, olen)
+
+	C.olm_account_one_time_keys(
+		a.ptr,
+		unsafe.Pointer(&obuf[0]),
+		olen,
+	)
+
+	err := a.lastError()
+	if err != nil {
+		return nil, err
+	}
+
+	return otk, json.Unmarshal(obuf, &otk)
+}
+
+// RemoveOneTimeKeys removes a sessions one time keys from an account
+func (a Account) RemoveOneTimeKeys(s *Session) error {
+	C.olm_remove_one_time_keys(a.ptr, s.ptr)
+
+	return a.lastError()
 }
 
 func (a Account) lastError() error {
