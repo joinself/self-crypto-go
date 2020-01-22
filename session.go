@@ -8,6 +8,7 @@ package olm
 import "C"
 import (
 	"crypto/rand"
+	"fmt"
 	"unsafe"
 )
 
@@ -52,16 +53,14 @@ func CreateOutboundSession(acc *Account, identityKey, oneTimeKey string) (*Sessi
 }
 
 // CreateInboundSession creates an inbound session for receiving messages from a senders outbound session
-func CreateInboundSession(acc *Account, oneTimeKeyMessage string) (*Session, error) {
+func CreateInboundSession(acc *Account, oneTimeKeyMessage []byte) (*Session, error) {
 	sess := newSession()
-
-	otkmbuf := []byte(oneTimeKeyMessage)
 
 	C.olm_create_inbound_session(
 		sess.ptr,
 		acc.ptr,
-		unsafe.Pointer(&otkmbuf[0]),
-		C.size_t(len(otkmbuf)),
+		unsafe.Pointer(&oneTimeKeyMessage[0]),
+		C.size_t(len(oneTimeKeyMessage)),
 	)
 
 	return sess, sess.lastError()
@@ -120,11 +119,15 @@ func (s Session) GetSessionID() (string, error) {
 // Encrypt encrypts a message using a sessions ratchet
 func (s Session) Encrypt(plaintext []byte) (int, []byte, error) {
 	rlen := C.olm_encrypt_random_length(s.ptr)
-	rbuf := make([]byte, rlen)
+	rbuf := []byte{0}
 
-	_, err := rand.Read(rbuf)
-	if err != nil {
-		return 0, nil, err
+	if rlen > 0 {
+		rbuf = make([]byte, rlen)
+
+		_, err := rand.Read(rbuf)
+		if err != nil {
+			return 0, nil, err
+		}
 	}
 
 	mtype := C.olm_encrypt_message_type(s.ptr)
@@ -150,6 +153,9 @@ func (s Session) Encrypt(plaintext []byte) (int, []byte, error) {
 
 // Decrypt decrypts a message using a sessions ratchet
 func (s Session) Decrypt(msgType int, message []byte) ([]byte, error) {
+
+	fmt.Println("msg:", message)
+
 	ptlen := C.olm_decrypt_max_plaintext_length(
 		s.ptr,
 		C.size_t(msgType),

@@ -156,8 +156,8 @@ func (a Account) GenerateOneTimeKeys(count int) error {
 }
 
 // OneTimeKeys returns the pulic component of the accounts one time keys
-func (a Account) OneTimeKeys() (map[string]interface{}, error) {
-	var otk map[string]interface{}
+func (a Account) OneTimeKeys() (*OneTimeKeys, error) {
+	var otk OneTimeKeys
 
 	olen := C.olm_account_one_time_keys_length(a.ptr)
 	obuf := make([]byte, olen)
@@ -173,7 +173,7 @@ func (a Account) OneTimeKeys() (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	return otk, json.Unmarshal(obuf, &otk)
+	return &otk, json.Unmarshal(obuf, &otk)
 }
 
 // RemoveOneTimeKeys removes a sessions one time keys from an account
@@ -181,6 +181,27 @@ func (a Account) RemoveOneTimeKeys(s *Session) error {
 	C.olm_remove_one_time_keys(a.ptr, s.ptr)
 
 	return a.lastError()
+}
+
+// IdentityKeys returns the identity keys associated with the account
+func (a Account) IdentityKeys() (*PublicKeys, error) {
+	var keys PublicKeys
+
+	olen := C.olm_account_identity_keys_length(a.ptr)
+	obuf := make([]byte, olen)
+
+	C.olm_account_identity_keys(
+		a.ptr,
+		unsafe.Pointer(&obuf[0]),
+		olen,
+	)
+
+	err := a.lastError()
+	if err != nil {
+		return nil, err
+	}
+
+	return &keys, json.Unmarshal(obuf, &keys)
 }
 
 func (a Account) lastError() error {

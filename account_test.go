@@ -69,8 +69,19 @@ func TestAccountOneTimeKeys(t *testing.T) {
 	otk, err := account.OneTimeKeys()
 	require.Nil(t, err)
 
-	curve25519, ok := otk["curve25519"].(map[string]interface{})
-	assert.True(t, ok)
+	curve25519 := otk.Curve25519
 	require.NotNil(t, curve25519)
 	assert.Len(t, curve25519, 5)
+}
+
+func TestAccountIdentityKeys(t *testing.T) {
+	account, err := NewAccount()
+	require.NotNil(t, account)
+	require.Nil(t, err)
+
+	keys, err := account.IdentityKeys()
+	require.Nil(t, err)
+	require.NotNil(t, keys)
+	assert.NotEmpty(t, keys.Curve25519)
+	assert.NotEmpty(t, keys.Ed25519)
 }
