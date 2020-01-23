@@ -3,7 +3,6 @@ package olm
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -54,11 +53,11 @@ func TestSessionCreateInboundSession(t *testing.T) {
 	session, err := CreateOutboundSession(alice, recipientsKey, oneTimeKey)
 	require.Nil(t, err)
 
-	msgType, msg, err := session.Encrypt([]byte("test message"))
+	msg, err := session.Encrypt([]byte("test message"))
 	require.Nil(t, err)
-	assert.NotEqual(t, 0, len(msg))
-	assert.NotEqual(t, []byte("test message"), msg)
-	assert.Equal(t, 0, msgType)
+	assert.NotEqual(t, 0, len(msg.Ciphertext))
+	assert.NotEqual(t, []byte("test message"), msg.Ciphertext)
+	assert.Equal(t, 0, msg.Type)
 
 	_, err = CreateInboundSession(bob, msg)
 	require.Nil(t, err)
@@ -86,13 +85,37 @@ func TestSessionEncryptDecrypt(t *testing.T) {
 	aliceSession, err := CreateOutboundSession(alice, recipientsKey, oneTimeKey)
 	require.Nil(t, err)
 
-	msgType, msg, err := aliceSession.Encrypt([]byte("init"))
+	msg, err := aliceSession.Encrypt([]byte("alice init"))
 	require.Nil(t, err)
 
 	bobSession, err := CreateInboundSession(bob, msg)
 	require.Nil(t, err)
 
-	pt, err := bobSession.Decrypt(msgType, msg)
+	err = bob.RemoveOneTimeKeys(bobSession)
 	require.Nil(t, err)
-	fmt.Println(pt)
+
+	pt, err := bobSession.Decrypt(msg)
+	require.Nil(t, err)
+	assert.Equal(t, []byte("alice init"), pt)
+
+	msg, err = bobSession.Encrypt([]byte("bob init"))
+	require.Nil(t, err)
+
+	pt, err = aliceSession.Decrypt(msg)
+	require.Nil(t, err)
+	assert.Equal(t, []byte("bob init"), pt)
+
+	msg, err = aliceSession.Encrypt([]byte("hello"))
+	require.Nil(t, err)
+
+	pt, err = bobSession.Decrypt(msg)
+	require.Nil(t, err)
+	assert.Equal(t, []byte("hello"), pt)
+
+	msg, err = bobSession.Encrypt([]byte("goodbye"))
+	require.Nil(t, err)
+
+	pt, err = aliceSession.Decrypt(msg)
+	require.Nil(t, err)
+	assert.Equal(t, []byte("goodbye"), pt)
 }

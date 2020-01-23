@@ -8,7 +8,6 @@ package olm
 import "C"
 import (
 	"crypto/rand"
-	"fmt"
 	"unsafe"
 )
 
@@ -53,14 +52,14 @@ func CreateOutboundSession(acc *Account, identityKey, oneTimeKey string) (*Sessi
 }
 
 // CreateInboundSession creates an inbound session for receiving messages from a senders outbound session
-func CreateInboundSession(acc *Account, oneTimeKeyMessage []byte) (*Session, error) {
+func CreateInboundSession(acc *Account, oneTimeKeyMessage *Message) (*Session, error) {
 	sess := newSession()
 
 	C.olm_create_inbound_session(
 		sess.ptr,
 		acc.ptr,
-		unsafe.Pointer(&oneTimeKeyMessage[0]),
-		C.size_t(len(oneTimeKeyMessage)),
+		unsafe.Pointer(&oneTimeKeyMessage.Ciphertext[0]),
+		C.size_t(len(oneTimeKeyMessage.Ciphertext)),
 	)
 
 	return sess, sess.lastError()
@@ -117,7 +116,11 @@ func (s Session) GetSessionID() (string, error) {
 }
 
 // Encrypt encrypts a message using a sessions ratchet
-func (s Session) Encrypt(plaintext []byte) (int, []byte, error) {
+func (s Session) Encrypt(plaintext []byte) (*Message, error) {
+	m := Message{
+		Type: int(C.olm_encrypt_message_type(s.ptr)),
+	}
+
 	rlen := C.olm_encrypt_random_length(s.ptr)
 	rbuf := []byte{0}
 
@@ -126,17 +129,21 @@ func (s Session) Encrypt(plaintext []byte) (int, []byte, error) {
 
 		_, err := rand.Read(rbuf)
 		if err != nil {
-			return 0, nil, err
+			return nil, err
 		}
 	}
 
-	mtype := C.olm_encrypt_message_type(s.ptr)
 	mlen := C.olm_encrypt_message_length(
 		s.ptr,
 		C.size_t(len(plaintext)),
 	)
 
-	mbuf := make([]byte, mlen)
+	err := s.lastError()
+	if err != nil {
+		return nil, err
+	}
+
+	m.Ciphertext = make([]byte, mlen)
 
 	C.olm_encrypt(
 		s.ptr,
@@ -144,35 +151,46 @@ func (s Session) Encrypt(plaintext []byte) (int, []byte, error) {
 		C.size_t(len(plaintext)),
 		unsafe.Pointer(&rbuf[0]),
 		rlen,
-		unsafe.Pointer(&mbuf[0]),
+		unsafe.Pointer(&m.Ciphertext[0]),
 		mlen,
 	)
 
-	return int(mtype), mbuf, s.lastError()
+	return &m, s.lastError()
 }
 
 // Decrypt decrypts a message using a sessions ratchet
-func (s Session) Decrypt(msgType int, message []byte) ([]byte, error) {
-
-	fmt.Println("msg:", message)
+func (s Session) Decrypt(message *Message) ([]byte, error) {
+	mbuf := message.ciphertext()
 
 	ptlen := C.olm_decrypt_max_plaintext_length(
 		s.ptr,
-		C.size_t(msgType),
-		unsafe.Pointer(&message[0]),
-		C.size_t(len(message)),
+		C.size_t(message.Type),
+		unsafe.Pointer(&mbuf[0]),
+		C.size_t(len(mbuf)),
 	)
+
+	err := s.lastError()
+	if err != nil {
+		return nil, err
+	}
+
+	mbuf = message.ciphertext()
 
 	ptbuf := make([]byte, ptlen)
 
 	ptlen = C.olm_decrypt(
 		s.ptr,
-		C.size_t(msgType),
-		unsafe.Pointer(&message[0]),
-		C.size_t(len(message)),
+		C.size_t(message.Type),
+		unsafe.Pointer(&mbuf[0]),
+		C.size_t(len(mbuf)),
 		unsafe.Pointer(&ptbuf[0]),
 		ptlen,
 	)
+
+	err = s.lastError()
+	if err != nil {
+		return nil, err
+	}
 
 	return ptbuf[:ptlen], s.lastError()
 }
