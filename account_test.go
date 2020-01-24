@@ -85,3 +85,7 @@ func TestAccountIdentityKeys(t *testing.T) {
 	assert.NotEmpty(t, keys.Curve25519)
 	assert.NotEmpty(t, keys.Ed25519)
 }
+
+func TestAccountPickleWithKey(t *testing.T) {
+
+}

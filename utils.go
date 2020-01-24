@@ -3,7 +3,9 @@ package olm
 // #cgo pkg-config: libsodium
 // #include <sodium.h>
 import "C"
-import "errors"
+import (
+	"errors"
+)
 
 type zero struct {
 }
@@ -14,6 +16,26 @@ func (z zero) Read(b []byte) (int, error) {
 	}
 
 	return len(b), nil
+}
+
+// Ed25519FromSeed creates an ed25519 secret key from a seed
+func Ed25519FromSeed(seed []byte) ([]byte, []byte, error) {
+	ed25519SK := make([]byte, int(C.crypto_sign_secretkeybytes()))
+	ed25519PK := make([]byte, int(C.crypto_sign_publickeybytes()))
+
+	success := int(
+		C.crypto_sign_seed_keypair(
+			(*C.uchar)(&ed25519PK[0]),
+			(*C.uchar)(&ed25519SK[0]),
+			(*C.uchar)(&seed[0]),
+		),
+	)
+
+	if success != 0 {
+		return nil, nil, errors.New("could not convert ed25519 key")
+	}
+
+	return ed25519PK, ed25519SK, nil
 }
 
 // Ed25519PKToCurve25519 converts an Edwards 25519 public key to a Curve 25519 public key

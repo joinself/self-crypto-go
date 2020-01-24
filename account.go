@@ -3,6 +3,7 @@ package olm
 /*
 #cgo LDFLAGS: -L/usr/local/lib/libolm.so -lolm
 #include <olm/olm.h>
+#include <olm/cipher.h>
 #include <stdlib.h>
 */
 import "C"
@@ -64,6 +65,8 @@ func AccountFromKey(sk ed25519.PrivateKey) (*Account, error) {
 		unsafe.Pointer(&seed[0]),
 		rlen,
 	)
+
+	C.olm_encode_account()
 
 	return acc, acc.lastError()
 }

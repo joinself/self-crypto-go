@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,4 +23,14 @@ func TestUtilEd25519SKToCurve25519(t *testing.T) {
 
 	_, err = Ed25519SKToCurve25519(priv)
 	require.Nil(t, err)
+}
+
+func TestUtilEd25519FromSeed(t *testing.T) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	require.Nil(t, err)
+
+	pk, _, err := Ed25519FromSeed(priv.Seed())
+	require.Nil(t, err)
+
+	assert.Equal(t, []byte(pub), pk)
 }
