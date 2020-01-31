@@ -8,7 +8,6 @@ package olm
 */
 import "C"
 import (
-	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
 	"unsafe"
@@ -48,31 +47,21 @@ func NewAccount() (*Account, error) {
 	return acc, acc.lastError()
 }
 
-// AccountFromKey reconstructs an olm account from existing ed25519 secret key
-func AccountFromKey(sk ed25519.PrivateKey) (*Account, error) {
-	// TODO : We would be better off converting the ed25519 key to curve25519
-	// and trying to implement the pickle/encoding format so there is a direct
-	// relation between the two keypairs.
-
+// AccountFromSeed creates an olm account from existing ed25519 seed, with a derrivitve curve25519 key
+func AccountFromSeed(seed []byte) (*Account, error) {
 	acc := newAccount()
-	rlen := C.olm_create_account_random_length(acc.ptr)
 
-	seed := sk.Seed()
-	seed = append(seed, sk.Seed()...)
-
-	C.olm_create_account(
+	C.olm_create_account_derrived_keys(
 		acc.ptr,
 		unsafe.Pointer(&seed[0]),
-		rlen,
+		C.size_t(len(seed)),
 	)
-
-	C.olm_encode_account()
 
 	return acc, acc.lastError()
 }
 
 // AccountFromPickle reconstructs an account from a pickle
-func AccountFromPickle(key string, pickle string) (*Account, error) {
+func AccountFromPickle(key, pickle string) (*Account, error) {
 	acc := newAccount()
 
 	kbuf := []byte(key)
@@ -94,7 +83,6 @@ func (a Account) Pickle(key string) (string, error) {
 	kbuf := []byte(key)
 	pbuf := make([]byte, C.olm_pickle_account_length(a.ptr))
 
-	// this returns a result we should probably inspect
 	C.olm_pickle_account(
 		a.ptr,
 		unsafe.Pointer(&kbuf[0]),

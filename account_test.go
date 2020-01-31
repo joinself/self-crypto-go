@@ -18,11 +18,11 @@ func TestAccountCreateAccount(t *testing.T) {
 	require.Nil(t, err)
 }
 
-func TestAccountCreateAccountFromKeys(t *testing.T) {
+func TestAccountCreateAccountFromSeed(t *testing.T) {
 	pk, sk, err := ed25519.GenerateKey(rand.Reader)
 	require.Nil(t, err)
 
-	account, err := AccountFromKey(sk)
+	account, err := AccountFromSeed(sk.Seed())
 	require.NotNil(t, account)
 	require.Nil(t, err)
 
@@ -38,7 +38,7 @@ func TestAccountPickle(t *testing.T) {
 	pk, sk, err := ed25519.GenerateKey(rand.Reader)
 	require.Nil(t, err)
 
-	account, err := AccountFromKey(sk)
+	account, err := AccountFromSeed(sk.Seed())
 	require.NotNil(t, account)
 	require.Nil(t, err)
 

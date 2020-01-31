@@ -62,7 +62,7 @@ func Ed25519PKToCurve25519(publicKey []byte) ([]byte, error) {
 
 // Ed25519SKToCurve25519 converts an Edwards 25519 private key to a Curve 25519 private key
 func Ed25519SKToCurve25519(secretKey []byte) ([]byte, error) {
-	if len(secretKey) < int(C.crypto_sign_publickeybytes()) {
+	if len(secretKey) < int(C.crypto_sign_secretkeybytes()) {
 		return nil, errors.New("provided private key is not the correct size")
 	}
 
