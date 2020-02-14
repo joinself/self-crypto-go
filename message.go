@@ -1,6 +1,8 @@
 package olm
 
-import "encoding/base64"
+import (
+	"encoding/base64"
+)
 
 var encoder = base64.RawStdEncoding
 
@@ -12,11 +14,11 @@ const (
 // Message an encrypted olm message
 type Message struct {
 	Type       int    `json:"type"`
-	Ciphertext []byte `json:"ciphertext"`
+	Ciphertext string `json:"ciphertext"`
 }
 
 func (m *Message) encoded() []byte {
-	return []byte(encoder.EncodeToString(m.Ciphertext))
+	return []byte(encoder.EncodeToString(m.copy()))
 }
 
 func (m *Message) copy() []byte {
@@ -27,9 +29,7 @@ func (m *Message) copy() []byte {
 
 func (m *Message) ciphertext() []byte {
 	switch m.Type {
-	case PreKeyMessage:
-		return m.encoded()
-	case NormalMessage:
+	case PreKeyMessage, NormalMessage:
 		return m.copy()
 	}
 	return []byte{}

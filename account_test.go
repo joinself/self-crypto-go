@@ -13,7 +13,7 @@ import (
 var testString = []byte("test-string")
 
 func TestAccountCreateAccount(t *testing.T) {
-	account, err := NewAccount()
+	account, err := NewAccount("alice:1")
 	require.NotNil(t, account)
 	require.Nil(t, err)
 }
@@ -22,7 +22,7 @@ func TestAccountCreateAccountFromSeed(t *testing.T) {
 	pk, sk, err := ed25519.GenerateKey(rand.Reader)
 	require.Nil(t, err)
 
-	account, err := AccountFromSeed(sk.Seed())
+	account, err := AccountFromSeed("alice:1", sk.Seed())
 	require.NotNil(t, account)
 	require.Nil(t, err)
 
@@ -38,7 +38,7 @@ func TestAccountPickle(t *testing.T) {
 	pk, sk, err := ed25519.GenerateKey(rand.Reader)
 	require.Nil(t, err)
 
-	account, err := AccountFromSeed(sk.Seed())
+	account, err := AccountFromSeed("alice:1", sk.Seed())
 	require.NotNil(t, account)
 	require.Nil(t, err)
 
@@ -46,7 +46,7 @@ func TestAccountPickle(t *testing.T) {
 	require.Nil(t, err)
 	assert.NotEqual(t, 0, len(pickle))
 
-	account, err = AccountFromPickle("test", pickle)
+	account, err = AccountFromPickle("alice:1", "test", pickle)
 	require.Nil(t, err)
 	require.NotNil(t, account)
 
@@ -59,7 +59,7 @@ func TestAccountPickle(t *testing.T) {
 }
 
 func TestAccountOneTimeKeys(t *testing.T) {
-	account, err := NewAccount()
+	account, err := NewAccount("alice:1")
 	require.NotNil(t, account)
 	require.Nil(t, err)
 
@@ -75,7 +75,7 @@ func TestAccountOneTimeKeys(t *testing.T) {
 }
 
 func TestAccountIdentityKeys(t *testing.T) {
-	account, err := NewAccount()
+	account, err := NewAccount("alice:1")
 	require.NotNil(t, account)
 	require.Nil(t, err)
 
@@ -84,8 +84,4 @@ func TestAccountIdentityKeys(t *testing.T) {
 	require.NotNil(t, keys)
 	assert.NotEmpty(t, keys.Curve25519)
 	assert.NotEmpty(t, keys.Ed25519)
-}
-
-func TestAccountPickleWithKey(t *testing.T) {
-
 }

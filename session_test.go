@@ -14,7 +14,7 @@ func TestSessionCreateOutboundSession(t *testing.T) {
 	pk, _, err := ed25519.GenerateKey(rand.Reader)
 	require.Nil(t, err)
 
-	account, err := NewAccount()
+	account, err := NewAccount("alice:1")
 	require.Nil(t, err)
 
 	err = account.GenerateOneTimeKeys(1)
@@ -23,19 +23,20 @@ func TestSessionCreateOutboundSession(t *testing.T) {
 	oneTimeKeys, err := account.OneTimeKeys()
 	require.Nil(t, err)
 
+	recipient := "john:1"
 	recipientsKey := base64.RawStdEncoding.EncodeToString(pk)
 	oneTimeKey := oneTimeKeys.Curve25519["AAAAAQ"]
 
-	session, err := CreateOutboundSession(account, recipientsKey, oneTimeKey)
+	session, err := CreateOutboundSession(account, recipient, recipientsKey, oneTimeKey)
 	require.Nil(t, err)
 	require.NotNil(t, session)
 }
 
 func TestSessionCreateInboundSession(t *testing.T) {
-	alice, err := NewAccount()
+	alice, err := NewAccount("alice:1")
 	require.Nil(t, err)
 
-	bob, err := NewAccount()
+	bob, err := NewAccount("bob:1")
 	require.Nil(t, err)
 
 	err = bob.GenerateOneTimeKeys(1)
@@ -50,7 +51,7 @@ func TestSessionCreateInboundSession(t *testing.T) {
 	oneTimeKey := otks.Curve25519["AAAAAQ"]
 	recipientsKey := idks.Curve25519
 
-	session, err := CreateOutboundSession(alice, recipientsKey, oneTimeKey)
+	session, err := CreateOutboundSession(alice, "bob:1", recipientsKey, oneTimeKey)
 	require.Nil(t, err)
 
 	msg, err := session.Encrypt([]byte("test message"))
@@ -59,15 +60,15 @@ func TestSessionCreateInboundSession(t *testing.T) {
 	assert.NotEqual(t, []byte("test message"), msg.Ciphertext)
 	assert.Equal(t, 0, msg.Type)
 
-	_, err = CreateInboundSession(bob, msg)
+	_, err = CreateInboundSession(bob, "alice:1", msg)
 	require.Nil(t, err)
 }
 
 func TestSessionEncryptDecrypt(t *testing.T) {
-	alice, err := NewAccount()
+	alice, err := NewAccount("alice:1")
 	require.Nil(t, err)
 
-	bob, err := NewAccount()
+	bob, err := NewAccount("bob:1")
 	require.Nil(t, err)
 
 	err = bob.GenerateOneTimeKeys(1)
@@ -82,13 +83,13 @@ func TestSessionEncryptDecrypt(t *testing.T) {
 	oneTimeKey := otks.Curve25519["AAAAAQ"]
 	recipientsKey := idks.Curve25519
 
-	aliceSession, err := CreateOutboundSession(alice, recipientsKey, oneTimeKey)
+	aliceSession, err := CreateOutboundSession(alice, "bob:1", recipientsKey, oneTimeKey)
 	require.Nil(t, err)
 
 	msg, err := aliceSession.Encrypt([]byte("alice init"))
 	require.Nil(t, err)
 
-	bobSession, err := CreateInboundSession(bob, msg)
+	bobSession, err := CreateInboundSession(bob, "alice:1", msg)
 	require.Nil(t, err)
 
 	err = bob.RemoveOneTimeKeys(bobSession)

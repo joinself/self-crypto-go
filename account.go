@@ -3,7 +3,6 @@ package olm
 /*
 #cgo LDFLAGS: -L/usr/local/lib/libolm.so -lolm
 #include <olm/olm.h>
-#include <olm/cipher.h>
 #include <stdlib.h>
 */
 import "C"
@@ -15,20 +14,22 @@ import (
 
 // Account an olm account that stores the ed25519 and curve25519 secret keys
 type Account struct {
-	ptr *C.struct_OlmAccount
+	identity string
+	ptr      *C.struct_OlmAccount
 }
 
-func newAccount() *Account {
+func newAccount(identity string) *Account {
 	buf := make([]byte, C.olm_account_size())
 
 	return &Account{
-		ptr: C.olm_account(unsafe.Pointer(&buf[0])),
+		identity: identity,
+		ptr:      C.olm_account(unsafe.Pointer(&buf[0])),
 	}
 }
 
 // NewAccount creates a new account with ed25519 and curve25519 secret keys
-func NewAccount() (*Account, error) {
-	acc := newAccount()
+func NewAccount(identity string) (*Account, error) {
+	acc := newAccount(identity)
 
 	rlen := C.olm_create_account_random_length(acc.ptr)
 	rbuf := make([]byte, rlen)
@@ -48,8 +49,8 @@ func NewAccount() (*Account, error) {
 }
 
 // AccountFromSeed creates an olm account from existing ed25519 seed, with a derrivitve curve25519 key
-func AccountFromSeed(seed []byte) (*Account, error) {
-	acc := newAccount()
+func AccountFromSeed(identity string, seed []byte) (*Account, error) {
+	acc := newAccount(identity)
 
 	C.olm_create_account_derrived_keys(
 		acc.ptr,
@@ -61,8 +62,8 @@ func AccountFromSeed(seed []byte) (*Account, error) {
 }
 
 // AccountFromPickle reconstructs an account from a pickle
-func AccountFromPickle(key, pickle string) (*Account, error) {
-	acc := newAccount()
+func AccountFromPickle(identity, key, pickle string) (*Account, error) {
+	acc := newAccount(identity)
 
 	kbuf := []byte(key)
 	pbuf := []byte(pickle)

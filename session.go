@@ -13,18 +13,19 @@ import (
 
 // Session an olm session
 type Session struct {
-	ptr *C.struct_OlmSession
+	recipient string
+	ptr       *C.struct_OlmSession
 }
 
-func newSession() *Session {
+func newSession(recipient string) *Session {
 	buf := make([]byte, C.olm_session_size())
 
-	return &Session{ptr: C.olm_session(unsafe.Pointer(&buf[0]))}
+	return &Session{recipient: recipient, ptr: C.olm_session(unsafe.Pointer(&buf[0]))}
 }
 
 // CreateOutboundSession sets up an outbound session for communicating with a third party
-func CreateOutboundSession(acc *Account, identityKey, oneTimeKey string) (*Session, error) {
-	sess := newSession()
+func CreateOutboundSession(acc *Account, recipient, identityKey, oneTimeKey string) (*Session, error) {
+	sess := newSession(recipient)
 
 	rlen := C.olm_create_outbound_session_random_length(sess.ptr)
 	rbuf := make([]byte, rlen)
@@ -52,22 +53,24 @@ func CreateOutboundSession(acc *Account, identityKey, oneTimeKey string) (*Sessi
 }
 
 // CreateInboundSession creates an inbound session for receiving messages from a senders outbound session
-func CreateInboundSession(acc *Account, oneTimeKeyMessage *Message) (*Session, error) {
-	sess := newSession()
+func CreateInboundSession(acc *Account, sender string, oneTimeKeyMessage *Message) (*Session, error) {
+	sess := newSession(sender)
+
+	mbuf := oneTimeKeyMessage.ciphertext()
 
 	C.olm_create_inbound_session(
 		sess.ptr,
 		acc.ptr,
-		unsafe.Pointer(&oneTimeKeyMessage.Ciphertext[0]),
-		C.size_t(len(oneTimeKeyMessage.Ciphertext)),
+		unsafe.Pointer(&mbuf[0]),
+		C.size_t(len(mbuf)),
 	)
 
 	return sess, sess.lastError()
 }
 
 // SessionFromPickle loads an encoded session from a pickle
-func SessionFromPickle(key, pickle string) (*Session, error) {
-	sess := newSession()
+func SessionFromPickle(recipient, key, pickle string) (*Session, error) {
+	sess := newSession(recipient)
 
 	kbuf := []byte(key)
 	pbuf := []byte(pickle)
@@ -143,7 +146,7 @@ func (s Session) Encrypt(plaintext []byte) (*Message, error) {
 		return nil, err
 	}
 
-	m.Ciphertext = make([]byte, mlen)
+	mbuf := make([]byte, mlen)
 
 	C.olm_encrypt(
 		s.ptr,
@@ -151,9 +154,11 @@ func (s Session) Encrypt(plaintext []byte) (*Message, error) {
 		C.size_t(len(plaintext)),
 		unsafe.Pointer(&rbuf[0]),
 		rlen,
-		unsafe.Pointer(&m.Ciphertext[0]),
+		unsafe.Pointer(&mbuf[0]),
 		mlen,
 	)
+
+	m.Ciphertext = string(mbuf)
 
 	return &m, s.lastError()
 }
