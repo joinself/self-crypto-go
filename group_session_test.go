@@ -1,6 +1,8 @@
 package olm
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"testing"
 
@@ -32,7 +34,9 @@ func createTestSession(t *testing.T, sender *Account, recipient string) (*Accoun
 
 func TestGroupSessionEncryptDecrypt(t *testing.T) {
 	// setup alices group session
-	alice, err := NewAccount("alice:1")
+	_, sk, _ := ed25519.GenerateKey(rand.Reader)
+	alice, err := AccountFromSeed("alice:1", sk.Seed())
+
 	require.Nil(t, err)
 
 	accounts := make(map[string]*Account)
