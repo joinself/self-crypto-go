@@ -1,7 +1,8 @@
 package olm
 
 /*
-#cgo LDFLAGS: -L/usr/local/lib/libolm.so -lolm
+#cgo darwin LDFLAGS: -L/usr/local/lib/ -lolm
+#cgo linux LDFLAGS: -L/usr/local/lib/libolm.so -lolm
 #include <olm/olm.h>
 #include <stdlib.h>
 */
