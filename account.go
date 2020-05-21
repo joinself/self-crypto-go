@@ -1,9 +1,9 @@
-package olm
+package selfcrypto
 
 /*
-#cgo darwin LDFLAGS: -L/usr/local/lib/ -lolm
-#cgo linux LDFLAGS: -L/usr/local/lib/libolm.so -lolm
-#include <olm/olm.h>
+#cgo darwin LDFLAGS: -L/usr/local/lib/ -lself_olm
+#cgo linux LDFLAGS: -L/usr/local/lib/libself_olm.so -lself_olm
+#include <self_olm/olm.h>
 #include <stdlib.h>
 */
 import "C"

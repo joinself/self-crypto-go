@@ -1,4 +1,4 @@
-package olm
+package selfcrypto
 
 // PublicKeys stores an accounts public keys
 type PublicKeys struct {

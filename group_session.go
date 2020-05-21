@@ -1,16 +1,26 @@
-package olm
+package selfcrypto
 
+/*
+#cgo darwin LDFLAGS: -L/usr/local/lib/ -lself_olm
+#cgo linux LDFLAGS: -L/usr/local/lib/libself_olm.so -lself_olm
+#cgo darwin LDFLAGS: -L/usr/local/lib/ -lself_omemo
+#cgo linux LDFLAGS: -L/usr/local/lib/libself_omemo.so -lself_omemo
+#include <self_olm/olm.h>
+#include <self_omemo.h>
+#include <stdlib.h>
+*/
+import "C"
 import (
-	"crypto/rand"
-	"encoding/json"
 	"errors"
-	"golang.org/x/crypto/chacha20poly1305"
+	"unsafe"
 )
 
 // GroupSession stores all recipients of a group message
 type GroupSession struct {
 	acc        *Account
 	recipients []*Session
+	ptr    *C.GroupSession
+	cstrings   []unsafe.Pointer
 }
 
 // GroupMessage group message
@@ -21,101 +31,93 @@ type GroupMessage struct {
 
 // CreateGroupSession creates a group session from a number of participants
 func CreateGroupSession(account *Account, recipients []*Session) (*GroupSession, error) {
+	cstrings := make([]unsafe.Pointer, 0, len(recipients))
+
+	session := C.omemo_create_group_session()
+
+	id := C.CString(account.identity)
+	cstrings = append(cstrings, unsafe.Pointer(id))
+
+	C.omemo_set_identity(session, id)
+
 	for _, r := range recipients {
 		if r.recipient == "" {
 			return nil, errors.New("cannot provide a recipients session with no defined recipient")
 		}
+
+		rid := C.CString(r.recipient)
+
+		C.omemo_add_group_participant(session, rid, r.ptr)
+
+		cstrings = append(cstrings, unsafe.Pointer(rid))
 	}
 
 	return &GroupSession{
 		acc:        account,
 		recipients: recipients,
+		ptr:        session,
+		cstrings:   cstrings,
 	}, nil
 }
 
-// Encrypt encrypts a message for all recipients
-func (gs *GroupSession) Encrypt(message []byte) ([]byte, error) {
-	// encrypt the plaintext with a random key and nonce
-	key := make([]byte, chacha20poly1305.KeySize)
-	nonce := make([]byte, chacha20poly1305.NonceSizeX)
 
-	_, err := rand.Read(key)
-	if err != nil {
-		return nil, err
+func (gs *GroupSession) Encrypt(message []byte) ([]byte, error){
+	sz := C.omemo_encrypted_size(
+		gs.ptr,
+		C.ulong(len(message)),
+	)
+
+	buf := make([]byte, sz)
+
+	sz = C.omemo_encrypt(
+		gs.ptr,
+		(*C.uchar)(&message[0]),
+		C.ulong(len(message)),
+		(*C.uchar)(&buf[0]),
+		sz,
+	)
+
+	if sz == 0 {
+		return nil, errors.New("failed to encrypt")
 	}
 
-	_, err = rand.Read(nonce)
-	if err != nil {
-		return nil, err
-	}
-
-	aead, err := chacha20poly1305.NewX(key)
-	if err != nil {
-		return nil, err
-	}
-
-	gm := GroupMessage{
-		Recipients: make(map[string]*Message),
-		Ciphertext: aead.Seal(nil, nonce, message, nil),
-	}
-
-	// ecrypt each key with recipients session
-	for _, s := range gs.recipients {
-		gm.Recipients[s.recipient], err = s.Encrypt(append(key, nonce...))
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return json.Marshal(gm)
+	return buf[:sz], nil
 }
 
-// Decrypt a message from a recipient
 func (gs *GroupSession) Decrypt(sender string, message []byte) ([]byte, error) {
-	rs := gs.GetRecipientSession(sender)
-	if rs == nil {
-		return nil, errors.New("group session does not contain a session for this sender")
+	sz := C.omemo_decrypted_size(
+		gs.ptr,
+		(*C.uchar)(&message[0]),
+		C.ulong(len(message)),
+	)
+
+	buf := make([]byte, sz)
+
+	sid := C.CString(sender)
+
+	sz = C.omemo_decrypt(
+		gs.ptr,
+		sid,
+		(*C.uchar)(&buf[0]),
+		sz,
+		(*C.uchar)(&message[0]),
+		C.ulong(len(message)),
+	)
+
+	C.free(unsafe.Pointer(sid))
+
+	if sz == 0 {
+		return nil, errors.New("failed to decrypt")
 	}
 
-	var gm GroupMessage
-
-	err := json.Unmarshal(message, &gm)
-	if err != nil {
-		return nil, err
-	}
-
-	kmsg, ok := gm.Recipients[gs.acc.identity]
-	if !ok {
-		return nil, errors.New("received message is not intended for this identity")
-	}
-
-	keyNonce, err := rs.Decrypt(kmsg)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(keyNonce) != chacha20poly1305.KeySize+chacha20poly1305.NonceSizeX {
-		return nil, errors.New("message key and nonce are of an invalid size")
-	}
-
-	key := keyNonce[:chacha20poly1305.KeySize]
-	nonce := keyNonce[chacha20poly1305.KeySize:]
-
-	aead, err := chacha20poly1305.NewX(key)
-	if err != nil {
-		return nil, err
-	}
-
-	return aead.Open(nil, nonce, gm.Ciphertext, nil)
+	return buf[:sz], nil
 }
 
-// GetRecipientSession returns the session of an identity if an identity is a recipient in the group session
-func (gs *GroupSession) GetRecipientSession(recipient string) *Session {
-	for _, r := range gs.recipients {
-		if r.recipient == recipient {
-			return r
-		}
+// Close clears up any allocated memory for the group session
+func (gs *GroupSession) Close() {
+	for i := range gs.cstrings {
+		C.free(gs.cstrings[i])
 	}
 
-	return nil
+	C.omemo_destroy_group_session(gs.ptr)
 }

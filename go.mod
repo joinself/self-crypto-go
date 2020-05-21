@@ -1,4 +1,4 @@
-module github.com/selfid-net/go-olm
+module github.com/selfid-net/self-crypto-go
 
 go 1.14
 
