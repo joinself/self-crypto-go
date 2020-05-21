@@ -1,4 +1,4 @@
-package olm
+package selfcrypto
 
 // #cgo pkg-config: libsodium
 // #include <sodium.h>

@@ -1,4 +1,4 @@
-package olm
+package selfcrypto
 
 import (
 	"crypto/ed25519"

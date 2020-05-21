@@ -1,4 +1,4 @@
-package olm
+package selfcrypto
 
 import "errors"
 

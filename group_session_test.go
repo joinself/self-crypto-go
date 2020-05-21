@@ -1,4 +1,4 @@
-package olm
+package selfcrypto
 
 import (
 	"crypto/ed25519"
@@ -83,4 +83,13 @@ func TestGroupSessionEncryptDecrypt(t *testing.T) {
 	require.Nil(t, err)
 
 	assert.Equal(t, []byte("hello there"), pt)
+
+	for i := 0; i < 100; i++ {
+		ct, err := gs.Encrypt([]byte("hello"))
+		require.Nil(t, err)
+
+		pt, err := bgs.Decrypt("alice:1", ct)
+		require.Nil(t, err)
+		assert.Equal(t, "hello", string(pt))
+	}
 }

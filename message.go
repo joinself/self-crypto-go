@@ -1,4 +1,4 @@
-package olm
+package selfcrypto
 
 import (
 	"encoding/base64"
@@ -13,7 +13,7 @@ const (
 
 // Message an encrypted olm message
 type Message struct {
-	Type       int    `json:"type"`
+	Type       int    `json:"mtype"`
 	Ciphertext string `json:"ciphertext"`
 }
 

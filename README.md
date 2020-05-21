@@ -1,6 +1,8 @@
 # go-olm
 
-This library has been forked from github.com/NotAFile/libolm-go with added omemo support as well as modifications made to derrive an accounts curve25519 key from an ed25519 keypair.
+
+
+This library is based upon github.com/NotAFile/libolm-go.
 
 
 ## Requirements
@@ -9,6 +11,7 @@ This library requires the self fork of olm available on your system.
 
 ```
 libself-olm
+libself-omemo
 ```
 
 ## Testing
