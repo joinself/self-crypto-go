@@ -2,9 +2,9 @@ package selfcrypto
 
 /*
 #cgo darwin LDFLAGS: -L/usr/local/lib/ -lself_olm
-#cgo linux LDFLAGS: -L/usr/local/lib/libself_olm.so -lself_olm
+#cgo linux LDFLAGS: -L/usr/lib/libself_olm.so -lself_olm
 #cgo darwin LDFLAGS: -L/usr/local/lib/ -lself_omemo
-#cgo linux LDFLAGS: -L/usr/local/lib/libself_omemo.so -lself_omemo
+#cgo linux LDFLAGS: -L/usr/lib/libself_omemo.so -lself_omemo
 #include <self_olm/olm.h>
 #include <self_omemo.h>
 #include <stdlib.h>
