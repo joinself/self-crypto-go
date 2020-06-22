@@ -26,7 +26,7 @@ type GroupSession struct {
 // GroupMessage group message
 type GroupMessage struct {
 	Recipients map[string]*Message `json:"recipients"`
-	Ciphertext []byte              `json:"ciphertext"`
+	Ciphertext string              `json:"ciphertext"`
 }
 
 // CreateGroupSession creates a group session from a number of participants
