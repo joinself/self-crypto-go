@@ -1,4 +1,4 @@
-module github.com/selfid-net/self-crypto-go
+module github.com/joinself/self-crypto-go
 
 go 1.14
 
