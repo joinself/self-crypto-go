@@ -13,8 +13,8 @@ This library was originally based on [libolm-go](https://github.com/NotAFile/lib
 This library requires the self fork of olm available on your system, in addition to self-omemo.
 
 
-- [libself-olm](https://download.selfid.net/olm/libself-olm_0.1.14_amd64.deb)
-- [libself-omemo](https://download.selfid.net/omemo/libself-omemo_0.1.0_amd64.deb)
+- [libself-olm](https://download.joinself.com/olm/libself-olm_0.1.14_amd64.deb)
+- [libself-omemo](https://download.joinself.com/omemo/libself-omemo_0.1.0_amd64.deb)
 
 ## Installing
 
