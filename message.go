@@ -9,7 +9,9 @@ import (
 var encoder = base64.RawStdEncoding
 
 const (
+	// PreKeyMessage is a message used to establish a session
 	PreKeyMessage = 0
+	// NormalMessage is a normal message
 	NormalMessage = 1
 )
 

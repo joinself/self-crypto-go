@@ -14,6 +14,7 @@ package selfcrypto
 import "C"
 import (
 	"errors"
+	"fmt"
 	"unsafe"
 )
 
@@ -21,7 +22,7 @@ import (
 type GroupSession struct {
 	acc        *Account
 	recipients []*Session
-	ptr    *C.GroupSession
+	ptr        *C.GroupSession
 	cstrings   []unsafe.Pointer
 }
 
@@ -62,8 +63,10 @@ func CreateGroupSession(account *Account, recipients []*Session) (*GroupSession,
 	}, nil
 }
 
+// Encrypt encryts a group message using omemo
+func (gs *GroupSession) Encrypt(message []byte) ([]byte, error) {
+	fmt.Println(gs.ptr == nil, string(message), len(message))
 
-func (gs *GroupSession) Encrypt(message []byte) ([]byte, error){
 	sz := C.omemo_encrypted_size(
 		gs.ptr,
 		C.ulong(len(message)),
@@ -86,6 +89,7 @@ func (gs *GroupSession) Encrypt(message []byte) ([]byte, error){
 	return buf[:sz], nil
 }
 
+// Decrypt decrypts a group message using omemo
 func (gs *GroupSession) Decrypt(sender string, message []byte) ([]byte, error) {
 	sz := C.omemo_decrypted_size(
 		gs.ptr,
