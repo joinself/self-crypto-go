@@ -9,6 +9,8 @@ package selfcrypto
 import "C"
 import (
 	"crypto/rand"
+	"errors"
+	"log"
 	"unsafe"
 )
 
@@ -57,7 +59,32 @@ func CreateOutboundSession(acc *Account, recipient, identityKey, oneTimeKey stri
 func CreateInboundSession(acc *Account, sender string, oneTimeKeyMessage *Message) (*Session, error) {
 	sess := newSession(sender)
 
+	if oneTimeKeyMessage == nil {
+		return errors.New("one time key message is nil")
+	}
+
 	mbuf := oneTimeKeyMessage.ciphertext()
+
+	if acc.ptr == nil {
+		return errors.New("account pointer is nil")
+	}
+
+	if sess == nil {
+		return errors.New("session is nil")
+	}
+
+	if sess.ptr == nil {
+		return errors.New("session pointer is nil")
+	}
+
+	if mbuf == nil {
+		return errors.New("message is nil")
+	}
+
+	if len(mbuf) < 1 {
+		log.Println("message:", oneTimeKeyMessage)
+		return errors.New("one message is nil")
+	}
 
 	C.olm_create_inbound_session(
 		sess.ptr,
