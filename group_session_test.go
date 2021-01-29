@@ -86,7 +86,7 @@ func TestGroupSessionEncryptDecrypt(t *testing.T) {
 
 	assert.Equal(t, []byte("hello there"), pt)
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 1000; i++ {
 		ct, err := gs.Encrypt([]byte("hello"))
 		require.Nil(t, err)
 

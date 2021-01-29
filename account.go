@@ -34,6 +34,7 @@ func NewAccount(identity string) (*Account, error) {
 
 	rlen := C.olm_create_account_random_length(acc.ptr)
 	rbuf := make([]byte, rlen)
+	crbuf := C.CBytes(rbuf)
 
 	_, err := rand.Read(rbuf)
 	if err != nil {
@@ -42,9 +43,11 @@ func NewAccount(identity string) (*Account, error) {
 
 	C.olm_create_account(
 		acc.ptr,
-		C.CBytes(rbuf),
+		crbuf,
 		rlen,
 	)
+
+	C.free(crbuf)
 
 	return acc, acc.lastError()
 }
@@ -53,11 +56,15 @@ func NewAccount(identity string) (*Account, error) {
 func AccountFromSeed(identity string, seed []byte) (*Account, error) {
 	acc := newAccount(identity)
 
+	sbuf := C.CBytes(seed)
+
 	C.olm_create_account_derrived_keys(
 		acc.ptr,
-		C.CBytes(seed),
+		sbuf,
 		C.size_t(len(seed)),
 	)
+
+	C.free(sbuf)
 
 	return acc, acc.lastError()
 }
@@ -68,14 +75,19 @@ func AccountFromPickle(identity, key, pickle string) (*Account, error) {
 
 	kbuf := []byte(key)
 	pbuf := []byte(pickle)
+	ckbuf := C.CBytes(kbuf)
+	cpbuf := C.CBytes(pbuf)
 
 	C.olm_unpickle_account(
 		acc.ptr,
-		C.CBytes(kbuf),
+		ckbuf,
 		C.size_t(len(kbuf)),
-		C.CBytes(pbuf),
+		cpbuf,
 		C.size_t(len(pbuf)),
 	)
+
+	C.free(ckbuf)
+	C.free(cpbuf)
 
 	return acc, acc.lastError()
 }
@@ -85,10 +97,11 @@ func (a Account) Pickle(key string) (string, error) {
 	kbuf := []byte(key)
 	plen := C.olm_pickle_account_length(a.ptr)
 	pbuf := C.malloc(plen)
+	ckbuf := C.CBytes(kbuf)
 
 	C.olm_pickle_account(
 		a.ptr,
-		C.CBytes(kbuf),
+		ckbuf,
 		C.size_t(len(kbuf)),
 		pbuf,
 		C.size_t(plen),
@@ -97,6 +110,7 @@ func (a Account) Pickle(key string) (string, error) {
 	data := C.GoBytes(pbuf, C.int(plen))
 
 	C.free(pbuf)
+	C.free(ckbuf)
 
 	return string(data), a.lastError()
 }
@@ -105,10 +119,11 @@ func (a Account) Pickle(key string) (string, error) {
 func (a Account) Sign(message []byte) ([]byte, error) {
 	slen := C.olm_account_signature_length(a.ptr)
 	sbuf := C.malloc(slen)
+	cmbuf := C.CBytes(message)
 
 	C.olm_account_sign(
 		a.ptr,
-		C.CBytes(message),
+		cmbuf,
 		C.size_t(len(message)),
 		sbuf,
 		slen,
@@ -117,6 +132,7 @@ func (a Account) Sign(message []byte) ([]byte, error) {
 	data := C.GoBytes(sbuf, C.int(slen))
 
 	C.free(sbuf)
+	// C.free(cmbuf)
 
 	return data, a.lastError()
 }
@@ -141,6 +157,7 @@ func (a Account) GenerateOneTimeKeys(count int) error {
 	)
 
 	rbuf := make([]byte, rlen)
+	crbuf := C.CBytes(rbuf)
 
 	_, err := rand.Read(rbuf)
 	if err != nil {
@@ -150,9 +167,11 @@ func (a Account) GenerateOneTimeKeys(count int) error {
 	C.olm_account_generate_one_time_keys(
 		a.ptr,
 		C.size_t(count),
-		C.CBytes(rbuf),
+		crbuf,
 		rlen,
 	)
+
+	C.free(crbuf)
 
 	return a.lastError()
 }

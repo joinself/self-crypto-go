@@ -71,9 +71,11 @@ func (gs *GroupSession) Encrypt(message []byte) ([]byte, error) {
 
 	buf := C.malloc(sz)
 
+	mbuf := C.CBytes(message)
+
 	sz = C.omemo_encrypt(
 		gs.ptr,
-		(*C.uchar)(C.CBytes(message)),
+		(*C.uchar)(mbuf),
 		C.ulong(len(message)),
 		(*C.uchar)(buf),
 		sz,
@@ -81,6 +83,7 @@ func (gs *GroupSession) Encrypt(message []byte) ([]byte, error) {
 
 	data := C.GoBytes(buf, C.int(sz))
 
+	C.free(mbuf)
 	C.free(buf)
 
 	if sz == 0 {
@@ -92,9 +95,11 @@ func (gs *GroupSession) Encrypt(message []byte) ([]byte, error) {
 
 // Decrypt decrypts a group message using omemo
 func (gs *GroupSession) Decrypt(sender string, message []byte) ([]byte, error) {
+	mbuf := C.CBytes(message)
+
 	sz := C.omemo_decrypted_size(
 		gs.ptr,
-		(*C.uchar)(C.CBytes(message)),
+		(*C.uchar)(mbuf),
 		C.ulong(len(message)),
 	)
 
@@ -107,7 +112,7 @@ func (gs *GroupSession) Decrypt(sender string, message []byte) ([]byte, error) {
 		sid,
 		(*C.uchar)(buf),
 		sz,
-		(*C.uchar)(C.CBytes(message)),
+		(*C.uchar)(mbuf),
 		C.ulong(len(message)),
 	)
 
@@ -116,6 +121,7 @@ func (gs *GroupSession) Decrypt(sender string, message []byte) ([]byte, error) {
 	data := C.GoBytes(buf, C.int(sz))
 
 	C.free(buf)
+	C.free(mbuf)
 
 	if sz == 0 {
 		return nil, errors.New("failed to decrypt")

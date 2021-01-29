@@ -9,8 +9,6 @@ package selfcrypto
 import "C"
 import (
 	"crypto/rand"
-	"errors"
-	"log"
 )
 
 // Session an olm session
@@ -41,16 +39,24 @@ func CreateOutboundSession(acc *Account, recipient, identityKey, oneTimeKey stri
 	ikbuf := []byte(identityKey)
 	otkbuf := []byte(oneTimeKey)
 
+	cikbuf := C.CBytes(ikbuf)
+	cotkbuf := C.CBytes(otkbuf)
+	crbuf := C.CBytes(rbuf)
+
 	C.olm_create_outbound_session(
 		sess.ptr,
 		acc.ptr,
-		C.CBytes(ikbuf),
+		cikbuf,
 		C.size_t(len(ikbuf)),
-		C.CBytes(otkbuf),
+		cotkbuf,
 		C.size_t(len(otkbuf)),
-		C.CBytes(rbuf),
+		crbuf,
 		rlen,
 	)
+
+	C.free(cikbuf)
+	C.free(cotkbuf)
+	C.free(crbuf)
 
 	return sess, sess.lastError()
 }
@@ -59,39 +65,18 @@ func CreateOutboundSession(acc *Account, recipient, identityKey, oneTimeKey stri
 func CreateInboundSession(acc *Account, sender string, oneTimeKeyMessage *Message) (*Session, error) {
 	sess := newSession(sender)
 
-	if oneTimeKeyMessage == nil {
-		return nil, errors.New("one time key message is nil")
-	}
-
 	mbuf := oneTimeKeyMessage.ciphertext()
 
-	if acc.ptr == nil {
-		return nil, errors.New("account pointer is nil")
-	}
-
-	if sess == nil {
-		return nil, errors.New("session is nil")
-	}
-
-	if sess.ptr == nil {
-		return nil, errors.New("session pointer is nil")
-	}
-
-	if mbuf == nil {
-		return nil, errors.New("message is nil")
-	}
-
-	if len(mbuf) < 1 {
-		log.Println("message:", oneTimeKeyMessage)
-		return nil, errors.New("one message is nil")
-	}
+	cmbuf := C.CBytes(mbuf)
 
 	C.olm_create_inbound_session(
 		sess.ptr,
 		acc.ptr,
-		C.CBytes(mbuf),
+		cmbuf,
 		C.size_t(len(mbuf)),
 	)
+
+	C.free(cmbuf)
 
 	return sess, sess.lastError()
 }
@@ -103,14 +88,20 @@ func SessionFromPickle(recipient, key, pickle string) (*Session, error) {
 	kbuf := []byte(key)
 	pbuf := []byte(pickle)
 
+	ckbuf := C.CBytes(kbuf)
+	cpbuf := C.CBytes(pbuf)
+
 	// this returns a result we should probably inspect
 	C.olm_unpickle_session(
 		sess.ptr,
-		C.CBytes(kbuf),
+		ckbuf,
 		C.size_t(len(kbuf)),
-		C.CBytes(pbuf),
+		cpbuf,
 		C.size_t(len(pbuf)),
 	)
+
+	C.free(ckbuf)
+	C.free(cpbuf)
 
 	return sess, sess.lastError()
 }
@@ -121,10 +112,12 @@ func (s Session) Pickle(key string) (string, error) {
 	plen := C.olm_pickle_session_length(s.ptr)
 	pbuf := C.malloc(plen)
 
+	ckbuf := C.CBytes(kbuf)
+
 	// this returns a result we should probably inspect
 	C.olm_pickle_session(
 		s.ptr,
-		C.CBytes(kbuf),
+		ckbuf,
 		C.size_t(len(kbuf)),
 		pbuf,
 		C.size_t(plen),
@@ -133,6 +126,7 @@ func (s Session) Pickle(key string) (string, error) {
 	data := C.GoBytes(pbuf, C.int(plen))
 
 	C.free(pbuf)
+	C.free(ckbuf)
 
 	return string(data), s.lastError()
 }
@@ -140,15 +134,19 @@ func (s Session) Pickle(key string) (string, error) {
 // GetSessionID returns the sessions id
 func (s Session) GetSessionID() (string, error) {
 	idlen := C.olm_session_id_length(s.ptr)
-	idbuf := make([]byte, idlen)
+	idbuf := C.malloc(idlen)
 
 	C.olm_session_id(
 		s.ptr,
-		C.CBytes(idbuf),
+		idbuf,
 		idlen,
 	)
 
-	return string(idbuf), s.lastError()
+	data := C.GoBytes(idbuf, C.int(idlen))
+
+	C.free(idbuf)
+
+	return string(data), s.lastError()
 }
 
 // Encrypt encrypts a message using a sessions ratchet
@@ -181,11 +179,14 @@ func (s Session) Encrypt(plaintext []byte) (*Message, error) {
 
 	mbuf := C.malloc(mlen)
 
+	cptbuf := C.CBytes(plaintext)
+	crbuf := C.CBytes(rbuf)
+
 	C.olm_encrypt(
 		s.ptr,
-		C.CBytes(plaintext),
+		cptbuf,
 		C.size_t(len(plaintext)),
-		C.CBytes(rbuf),
+		crbuf,
 		rlen,
 		mbuf,
 		mlen,
@@ -194,6 +195,8 @@ func (s Session) Encrypt(plaintext []byte) (*Message, error) {
 	data := C.GoBytes(mbuf, C.int(mlen))
 
 	C.free(mbuf)
+	C.free(cptbuf)
+	C.free(crbuf)
 
 	m.Ciphertext = string(data)
 
@@ -204,10 +207,13 @@ func (s Session) Encrypt(plaintext []byte) (*Message, error) {
 func (s Session) Decrypt(message *Message) ([]byte, error) {
 	mbuf := message.ciphertext()
 
+	tcmbuf := C.CBytes(mbuf)
+	cmbuf := C.CBytes(mbuf)
+
 	ptlen := C.olm_decrypt_max_plaintext_length(
 		s.ptr,
 		C.size_t(message.Type),
-		C.CBytes(mbuf),
+		tcmbuf,
 		C.size_t(len(mbuf)),
 	)
 
@@ -223,7 +229,7 @@ func (s Session) Decrypt(message *Message) ([]byte, error) {
 	ptlen = C.olm_decrypt(
 		s.ptr,
 		C.size_t(message.Type),
-		C.CBytes(mbuf),
+		cmbuf,
 		C.size_t(len(mbuf)),
 		ptbuf,
 		ptlen,
@@ -232,6 +238,8 @@ func (s Session) Decrypt(message *Message) ([]byte, error) {
 	data := C.GoBytes(ptbuf, C.int(ptlen))
 
 	C.free(ptbuf)
+	C.free(cmbuf)
+	C.free(tcmbuf)
 
 	err = s.lastError()
 	if err != nil {
