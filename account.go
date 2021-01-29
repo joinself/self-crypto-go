@@ -10,6 +10,7 @@ import "C"
 import (
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"unsafe"
 )
 
@@ -171,6 +172,18 @@ func (a Account) OneTimeKeys() (*OneTimeKeys, error) {
 
 // RemoveOneTimeKeys removes a sessions one time keys from an account
 func (a Account) RemoveOneTimeKeys(s *Session) error {
+	if a.ptr == nil {
+		return errors.New("account pointer is nil")
+	}
+
+	if s == nil {
+		return errors.New("session is nil")
+	}
+
+	if s.ptr == nil {
+		return errors.New("session pointer is nil")
+	}
+
 	C.olm_remove_one_time_keys(a.ptr, s.ptr)
 
 	return a.lastError()
