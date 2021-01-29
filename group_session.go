@@ -14,7 +14,6 @@ package selfcrypto
 import "C"
 import (
 	"errors"
-	"fmt"
 	"unsafe"
 )
 
@@ -65,58 +64,64 @@ func CreateGroupSession(account *Account, recipients []*Session) (*GroupSession,
 
 // Encrypt encryts a group message using omemo
 func (gs *GroupSession) Encrypt(message []byte) ([]byte, error) {
-	fmt.Println(gs.ptr == nil, string(message), len(message))
-
 	sz := C.omemo_encrypted_size(
 		gs.ptr,
 		C.ulong(len(message)),
 	)
 
-	buf := make([]byte, sz)
+	buf := C.malloc(sz)
 
 	sz = C.omemo_encrypt(
 		gs.ptr,
-		(*C.uchar)(&message[0]),
+		(*C.uchar)(C.CBytes(message)),
 		C.ulong(len(message)),
-		(*C.uchar)(&buf[0]),
+		(*C.uchar)(buf),
 		sz,
 	)
+
+	data := C.GoBytes(buf, C.int(sz))
+
+	C.free(buf)
 
 	if sz == 0 {
 		return nil, errors.New("failed to encrypt")
 	}
 
-	return buf[:sz], nil
+	return data[:sz], nil
 }
 
 // Decrypt decrypts a group message using omemo
 func (gs *GroupSession) Decrypt(sender string, message []byte) ([]byte, error) {
 	sz := C.omemo_decrypted_size(
 		gs.ptr,
-		(*C.uchar)(&message[0]),
+		(*C.uchar)(C.CBytes(message)),
 		C.ulong(len(message)),
 	)
 
-	buf := make([]byte, sz)
+	buf := C.malloc(sz)
 
 	sid := C.CString(sender)
 
 	sz = C.omemo_decrypt(
 		gs.ptr,
 		sid,
-		(*C.uchar)(&buf[0]),
+		(*C.uchar)(buf),
 		sz,
-		(*C.uchar)(&message[0]),
+		(*C.uchar)(C.CBytes(message)),
 		C.ulong(len(message)),
 	)
 
 	C.free(unsafe.Pointer(sid))
 
+	data := C.GoBytes(buf, C.int(sz))
+
+	C.free(buf)
+
 	if sz == 0 {
 		return nil, errors.New("failed to decrypt")
 	}
 
-	return buf[:sz], nil
+	return data[:sz], nil
 }
 
 // Close clears up any allocated memory for the group session

@@ -10,8 +10,6 @@ import "C"
 import (
 	"crypto/rand"
 	"encoding/json"
-	"errors"
-	"unsafe"
 )
 
 // Account an olm account that stores the ed25519 and curve25519 secret keys
@@ -21,11 +19,12 @@ type Account struct {
 }
 
 func newAccount(identity string) *Account {
-	buf := make([]byte, C.olm_account_size())
+	alen := C.olm_account_size()
+	buf := C.malloc(alen)
 
 	return &Account{
 		identity: identity,
-		ptr:      C.olm_account(unsafe.Pointer(&buf[0])),
+		ptr:      C.olm_account(buf),
 	}
 }
 
@@ -43,7 +42,7 @@ func NewAccount(identity string) (*Account, error) {
 
 	C.olm_create_account(
 		acc.ptr,
-		unsafe.Pointer(&rbuf[0]),
+		C.CBytes(rbuf),
 		rlen,
 	)
 
@@ -56,7 +55,7 @@ func AccountFromSeed(identity string, seed []byte) (*Account, error) {
 
 	C.olm_create_account_derrived_keys(
 		acc.ptr,
-		unsafe.Pointer(&seed[0]),
+		C.CBytes(seed),
 		C.size_t(len(seed)),
 	)
 
@@ -72,9 +71,9 @@ func AccountFromPickle(identity, key, pickle string) (*Account, error) {
 
 	C.olm_unpickle_account(
 		acc.ptr,
-		unsafe.Pointer(&kbuf[0]),
+		C.CBytes(kbuf),
 		C.size_t(len(kbuf)),
-		unsafe.Pointer(&pbuf[0]),
+		C.CBytes(pbuf),
 		C.size_t(len(pbuf)),
 	)
 
@@ -84,33 +83,42 @@ func AccountFromPickle(identity, key, pickle string) (*Account, error) {
 // Pickle encodes and encrypts an account to a string safe format
 func (a Account) Pickle(key string) (string, error) {
 	kbuf := []byte(key)
-	pbuf := make([]byte, C.olm_pickle_account_length(a.ptr))
+	plen := C.olm_pickle_account_length(a.ptr)
+	pbuf := C.malloc(plen)
 
 	C.olm_pickle_account(
 		a.ptr,
-		unsafe.Pointer(&kbuf[0]),
+		C.CBytes(kbuf),
 		C.size_t(len(kbuf)),
-		unsafe.Pointer(&pbuf[0]),
-		C.size_t(len(pbuf)),
+		pbuf,
+		C.size_t(plen),
 	)
 
-	return string(pbuf), a.lastError()
+	data := C.GoBytes(pbuf, C.int(plen))
+
+	C.free(pbuf)
+
+	return string(data), a.lastError()
 }
 
 // Sign signs a message with the accounts ed25519 secret key
 func (a Account) Sign(message []byte) ([]byte, error) {
 	slen := C.olm_account_signature_length(a.ptr)
-	sbuf := make([]byte, slen)
+	sbuf := C.malloc(slen)
 
 	C.olm_account_sign(
 		a.ptr,
-		unsafe.Pointer(&message[0]),
+		C.CBytes(message),
 		C.size_t(len(message)),
-		unsafe.Pointer(&sbuf[0]),
+		sbuf,
 		slen,
 	)
 
-	return sbuf, a.lastError()
+	data := C.GoBytes(sbuf, C.int(slen))
+
+	C.free(sbuf)
+
+	return data, a.lastError()
 }
 
 // MaxOneTimeKeys returns the maximum amount of keys an account can hold
@@ -142,7 +150,7 @@ func (a Account) GenerateOneTimeKeys(count int) error {
 	C.olm_account_generate_one_time_keys(
 		a.ptr,
 		C.size_t(count),
-		unsafe.Pointer(&rbuf[0]),
+		C.CBytes(rbuf),
 		rlen,
 	)
 
@@ -154,11 +162,11 @@ func (a Account) OneTimeKeys() (*OneTimeKeys, error) {
 	var otk OneTimeKeys
 
 	olen := C.olm_account_one_time_keys_length(a.ptr)
-	obuf := make([]byte, olen)
+	obuf := C.malloc(olen)
 
 	C.olm_account_one_time_keys(
 		a.ptr,
-		unsafe.Pointer(&obuf[0]),
+		obuf,
 		olen,
 	)
 
@@ -167,23 +175,15 @@ func (a Account) OneTimeKeys() (*OneTimeKeys, error) {
 		return nil, err
 	}
 
-	return &otk, json.Unmarshal(obuf, &otk)
+	data := C.GoBytes(obuf, C.int(olen))
+
+	C.free(obuf)
+
+	return &otk, json.Unmarshal(data, &otk)
 }
 
 // RemoveOneTimeKeys removes a sessions one time keys from an account
 func (a Account) RemoveOneTimeKeys(s *Session) error {
-	if a.ptr == nil {
-		return errors.New("account pointer is nil")
-	}
-
-	if s == nil {
-		return errors.New("session is nil")
-	}
-
-	if s.ptr == nil {
-		return errors.New("session pointer is nil")
-	}
-
 	C.olm_remove_one_time_keys(a.ptr, s.ptr)
 
 	return a.lastError()
@@ -194,11 +194,11 @@ func (a Account) IdentityKeys() (*PublicKeys, error) {
 	var keys PublicKeys
 
 	olen := C.olm_account_identity_keys_length(a.ptr)
-	obuf := make([]byte, olen)
+	obuf := C.malloc(olen)
 
 	C.olm_account_identity_keys(
 		a.ptr,
-		unsafe.Pointer(&obuf[0]),
+		obuf,
 		olen,
 	)
 
@@ -207,7 +207,11 @@ func (a Account) IdentityKeys() (*PublicKeys, error) {
 		return nil, err
 	}
 
-	return &keys, json.Unmarshal(obuf, &keys)
+	data := C.GoBytes(obuf, C.int(olen))
+
+	C.free(obuf)
+
+	return &keys, json.Unmarshal(data, &keys)
 }
 
 func (a Account) lastError() error {
