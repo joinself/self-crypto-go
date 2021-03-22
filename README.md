@@ -1,6 +1,8 @@
 # self-crypto-go
 
-[![GoDoc](https://godoc.org/github.com/joinself/self-crypto-go?status.svg)](https://godoc.org/github.com/joinself/self-crypto-go) [![Go Report Card](https://goreportcard.com/badge/github.com/joinself/self-crypto-go)](https://goreportcard.com/report/github.com/joinself/self-crypto-go) [![Build Status](https://travis-ci.com/joinself/self-crypto-go?branch=master)](https://travis-ci.com/joinself/self-crypto-go)
+![Build Status](https://github.com/joinself/self-crypto-go/actions/workflows/ci.yml/badge.svg?branch=master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/joinself/self-crypto-go)](https://goreportcard.com/report/github.com/joinself/self-crypto-go)
+[![GoDoc](https://godoc.org/github.com/joinself/self-crypto-go?status.svg)](https://godoc.org/github.com/joinself/self-crypto-go)
 
 A end to end encryption library for self, built ontop of self's fork of [olm](https://gitlab.matrix.org/matrix-org/olm).
 
