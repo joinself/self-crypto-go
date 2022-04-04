@@ -122,3 +122,50 @@ func TestSessionEncryptDecrypt(t *testing.T) {
 	require.Nil(t, err)
 	assert.Equal(t, []byte("goodbye"), pt)
 }
+
+func TestSessionSendMultiple(t *testing.T) {
+	alice, err := NewAccount("alice:1")
+	require.Nil(t, err)
+
+	bob, err := NewAccount("bob:1")
+	require.Nil(t, err)
+
+	err = bob.GenerateOneTimeKeys(1)
+	require.Nil(t, err)
+
+	otks, err := bob.OneTimeKeys()
+	require.Nil(t, err)
+
+	idks, err := bob.IdentityKeys()
+	require.Nil(t, err)
+
+	oneTimeKey := otks.Curve25519["AAAAAQ"]
+	recipientsKey := idks.Curve25519
+
+	aliceSession, err := CreateOutboundSession(alice, "bob:1", recipientsKey, oneTimeKey)
+	require.Nil(t, err)
+
+	// encrypt one message from alice
+	msg, err := aliceSession.Encrypt([]byte("alice init"))
+	require.Nil(t, err)
+
+	bobSession, err := CreateInboundSession(bob, "alice:1", msg)
+	require.Nil(t, err)
+
+	err = bob.RemoveOneTimeKeys(bobSession)
+	require.Nil(t, err)
+
+	// decrypt message from alice but don't return a result
+	pt, err := bobSession.Decrypt(msg)
+	require.Nil(t, err)
+	assert.Equal(t, []byte("alice init"), pt)
+
+	// encrypt another message, without having received one back from bob
+	msg, err = aliceSession.Encrypt([]byte("alice second"))
+	require.Nil(t, err)
+
+	// check if this message is not a one time key
+	matches, err := bobSession.MatchesInboundSession(msg)
+	require.Nil(t, err)
+	assert.True(t, matches)
+}

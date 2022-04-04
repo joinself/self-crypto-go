@@ -249,6 +249,25 @@ func (s Session) Decrypt(message *Message) ([]byte, error) {
 	return data[:ptlen], s.lastError()
 }
 
+// MatchesInboundSession checks if the PRE_KEY message is for this in-bound session. This can happen
+// if multiple messages are sent to this account before this account sends a message in reply.
+// returns true if the session matches
+func (s Session) MatchesInboundSession(message *Message) (bool, error) {
+	mbuf := message.ciphertext()
+
+	cmbuf := C.CBytes(mbuf)
+
+	ret := C.olm_matches_inbound_session(
+		s.ptr,
+		cmbuf,
+		C.size_t(len(mbuf)),
+	)
+
+	C.free(cmbuf)
+
+	return ret == 1, s.lastError()
+}
+
 func (s Session) lastError() error {
 	errStr := C.GoString(C.olm_session_last_error(s.ptr))
 	return Error(errStr)
