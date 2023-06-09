@@ -19,7 +19,6 @@ import (
 
 // GroupSession stores all recipients of a group message
 type GroupSession struct {
-	acc        *Account
 	recipients []*Session
 	ptr        *C.GroupSession
 	cstrings   []unsafe.Pointer
@@ -32,12 +31,12 @@ type GroupMessage struct {
 }
 
 // CreateGroupSession creates a group session from a number of participants
-func CreateGroupSession(account *Account, recipients []*Session) (*GroupSession, error) {
+func CreateGroupSession(as string, recipients []*Session) (*GroupSession, error) {
 	cstrings := make([]unsafe.Pointer, 0, len(recipients))
 
 	session := C.omemo_create_group_session()
 
-	id := C.CString(account.identity)
+	id := C.CString(as)
 	cstrings = append(cstrings, unsafe.Pointer(id))
 
 	C.omemo_set_identity(session, id)
@@ -55,7 +54,6 @@ func CreateGroupSession(account *Account, recipients []*Session) (*GroupSession,
 	}
 
 	return &GroupSession{
-		acc:        account,
 		recipients: recipients,
 		ptr:        session,
 		cstrings:   cstrings,
