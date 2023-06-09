@@ -50,7 +50,7 @@ func TestGroupSessionEncryptDecrypt(t *testing.T) {
 		accounts[r] = a
 	}
 
-	gs, err := CreateGroupSession(alice, recipients)
+	gs, err := CreateGroupSession("alice:1", recipients)
 	require.Nil(t, err)
 
 	// encrypt the message
@@ -66,7 +66,7 @@ func TestGroupSessionEncryptDecrypt(t *testing.T) {
 	bas, err := CreateInboundSession(accounts["bob:1"], "alice:1", rgm.Recipients["bob:1"])
 	require.Nil(t, err)
 
-	bgs, err := CreateGroupSession(accounts["bob:1"], []*Session{bas})
+	bgs, err := CreateGroupSession("bob:1", []*Session{bas})
 	require.Nil(t, err)
 
 	pt, err := bgs.Decrypt("alice:1", ct)
@@ -78,7 +78,7 @@ func TestGroupSessionEncryptDecrypt(t *testing.T) {
 	cas, err := CreateInboundSession(accounts["charlie:1"], "alice:1", rgm.Recipients["charlie:1"])
 	require.Nil(t, err)
 
-	cgs, err := CreateGroupSession(accounts["charlie:1"], []*Session{cas})
+	cgs, err := CreateGroupSession("charlie:1", []*Session{cas})
 	require.Nil(t, err)
 
 	pt, err = cgs.Decrypt("alice:1", ct)
