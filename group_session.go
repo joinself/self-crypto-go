@@ -3,12 +3,10 @@
 package selfcrypto
 
 /*
-#cgo darwin LDFLAGS: -L/usr/local/lib/ -lself_olm
-#cgo linux LDFLAGS: -L/usr/lib/libself_olm.so -lself_olm
-#cgo darwin LDFLAGS: -L/usr/local/lib/ -lself_omemo
-#cgo linux LDFLAGS: -L/usr/lib/libself_omemo.so -lself_omemo
-#include <self_olm/olm.h>
-#include <self_omemo.h>
+#cgo LDFLAGS: -lstdc++
+#cgo darwin LDFLAGS: -L/usr/local/lib/ -lself_omemo2
+#cgo linux LDFLAGS: -L/usr/lib/libself_omemo2.a -lself_omemo2
+#include <self_omemo2.h>
 #include <stdlib.h>
 */
 import "C"
@@ -34,12 +32,12 @@ type GroupMessage struct {
 func CreateGroupSession(as string, recipients []*Session) (*GroupSession, error) {
 	cstrings := make([]unsafe.Pointer, 0, len(recipients))
 
-	session := C.omemo_create_group_session()
+	session := C.self_omemo_create_group_session()
 
 	id := C.CString(as)
 	cstrings = append(cstrings, unsafe.Pointer(id))
 
-	C.omemo_set_identity(session, id)
+	C.self_omemo_set_identity(session, id)
 
 	for _, r := range recipients {
 		if r.recipient == "" {
@@ -48,7 +46,7 @@ func CreateGroupSession(as string, recipients []*Session) (*GroupSession, error)
 
 		rid := C.CString(r.recipient)
 
-		C.omemo_add_group_participant(session, rid, r.ptr)
+		C.self_omemo_add_group_participant(session, rid, r.ptr)
 
 		cstrings = append(cstrings, unsafe.Pointer(rid))
 	}
@@ -62,7 +60,7 @@ func CreateGroupSession(as string, recipients []*Session) (*GroupSession, error)
 
 // Encrypt encryts a group message using omemo
 func (gs *GroupSession) Encrypt(message []byte) ([]byte, error) {
-	sz := C.omemo_encrypted_size(
+	sz := C.self_omemo_encrypted_size(
 		gs.ptr,
 		C.ulong(len(message)),
 	)
@@ -71,7 +69,7 @@ func (gs *GroupSession) Encrypt(message []byte) ([]byte, error) {
 
 	mbuf := C.CBytes(message)
 
-	sz = C.omemo_encrypt(
+	sz = C.self_omemo_encrypt(
 		gs.ptr,
 		(*C.uchar)(mbuf),
 		C.ulong(len(message)),
@@ -95,7 +93,7 @@ func (gs *GroupSession) Encrypt(message []byte) ([]byte, error) {
 func (gs *GroupSession) Decrypt(sender string, message []byte) ([]byte, error) {
 	mbuf := C.CBytes(message)
 
-	sz := C.omemo_decrypted_size(
+	sz := C.self_omemo_decrypted_size(
 		gs.ptr,
 		(*C.uchar)(mbuf),
 		C.ulong(len(message)),
@@ -105,7 +103,7 @@ func (gs *GroupSession) Decrypt(sender string, message []byte) ([]byte, error) {
 
 	sid := C.CString(sender)
 
-	sz = C.omemo_decrypt(
+	sz = C.self_omemo_decrypt(
 		gs.ptr,
 		sid,
 		(*C.uchar)(buf),
@@ -134,5 +132,5 @@ func (gs *GroupSession) Close() {
 		C.free(gs.cstrings[i])
 	}
 
-	C.omemo_destroy_group_session(gs.ptr)
+	C.self_omemo_destroy_group_session(gs.ptr)
 }

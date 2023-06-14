@@ -1,9 +1,10 @@
 package selfcrypto
 
 /*
-#cgo darwin LDFLAGS: -L/usr/local/lib/ -lself_olm
-#cgo linux LDFLAGS: -L/usr/lib/libself_olm.so -lself_olm
-#include <self_olm/olm.h>
+#cgo LDFLAGS: -lstdc++
+#cgo darwin LDFLAGS: -L/usr/local/lib/ -lself_omemo2
+#cgo linux LDFLAGS: -L/usr/lib/libself_omemo2.a -lself_omemo2
+#include <self_omemo2.h>
 #include <stdlib.h>
 */
 import "C"
@@ -18,17 +19,17 @@ type Session struct {
 }
 
 func newSession(recipient string) *Session {
-	slen := C.olm_session_size()
+	slen := C.self_olm_session_size()
 	buf := C.malloc(slen)
 
-	return &Session{recipient: recipient, ptr: C.olm_session(buf)}
+	return &Session{recipient: recipient, ptr: C.self_olm_session(buf)}
 }
 
 // CreateOutboundSession sets up an outbound session for communicating with a third party
 func CreateOutboundSession(acc *Account, recipient, identityKey, oneTimeKey string) (*Session, error) {
 	sess := newSession(recipient)
 
-	rlen := C.olm_create_outbound_session_random_length(sess.ptr)
+	rlen := C.self_olm_create_outbound_session_random_length(sess.ptr)
 	rbuf := make([]byte, rlen)
 
 	_, err := rand.Read(rbuf)
@@ -43,7 +44,7 @@ func CreateOutboundSession(acc *Account, recipient, identityKey, oneTimeKey stri
 	cotkbuf := C.CBytes(otkbuf)
 	crbuf := C.CBytes(rbuf)
 
-	C.olm_create_outbound_session(
+	C.self_olm_create_outbound_session(
 		sess.ptr,
 		acc.ptr,
 		cikbuf,
@@ -69,7 +70,7 @@ func CreateInboundSession(acc *Account, sender string, oneTimeKeyMessage *Messag
 
 	cmbuf := C.CBytes(mbuf)
 
-	C.olm_create_inbound_session(
+	C.self_olm_create_inbound_session(
 		sess.ptr,
 		acc.ptr,
 		cmbuf,
@@ -92,7 +93,7 @@ func SessionFromPickle(recipient, key, pickle string) (*Session, error) {
 	cpbuf := C.CBytes(pbuf)
 
 	// this returns a result we should probably inspect
-	C.olm_unpickle_session(
+	C.self_olm_unpickle_session(
 		sess.ptr,
 		ckbuf,
 		C.size_t(len(kbuf)),
@@ -109,13 +110,13 @@ func SessionFromPickle(recipient, key, pickle string) (*Session, error) {
 // Pickle encode the current session
 func (s Session) Pickle(key string) (string, error) {
 	kbuf := []byte(key)
-	plen := C.olm_pickle_session_length(s.ptr)
+	plen := C.self_olm_pickle_session_length(s.ptr)
 	pbuf := C.malloc(plen)
 
 	ckbuf := C.CBytes(kbuf)
 
 	// this returns a result we should probably inspect
-	C.olm_pickle_session(
+	C.self_olm_pickle_session(
 		s.ptr,
 		ckbuf,
 		C.size_t(len(kbuf)),
@@ -131,124 +132,6 @@ func (s Session) Pickle(key string) (string, error) {
 	return string(data), s.lastError()
 }
 
-// GetSessionID returns the sessions id
-func (s Session) GetSessionID() (string, error) {
-	idlen := C.olm_session_id_length(s.ptr)
-	idbuf := C.malloc(idlen)
-
-	C.olm_session_id(
-		s.ptr,
-		idbuf,
-		idlen,
-	)
-
-	data := C.GoBytes(idbuf, C.int(idlen))
-
-	C.free(idbuf)
-
-	return string(data), s.lastError()
-}
-
-// Encrypt encrypts a message using a sessions ratchet
-func (s Session) Encrypt(plaintext []byte) (*Message, error) {
-	m := Message{
-		Type: int(C.olm_encrypt_message_type(s.ptr)),
-	}
-
-	rlen := C.olm_encrypt_random_length(s.ptr)
-	rbuf := []byte{0}
-
-	if rlen > 0 {
-		rbuf = make([]byte, rlen)
-
-		_, err := rand.Read(rbuf)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	mlen := C.olm_encrypt_message_length(
-		s.ptr,
-		C.size_t(len(plaintext)),
-	)
-
-	err := s.lastError()
-	if err != nil {
-		return nil, err
-	}
-
-	mbuf := C.malloc(mlen)
-
-	cptbuf := C.CBytes(plaintext)
-	crbuf := C.CBytes(rbuf)
-
-	C.olm_encrypt(
-		s.ptr,
-		cptbuf,
-		C.size_t(len(plaintext)),
-		crbuf,
-		rlen,
-		mbuf,
-		mlen,
-	)
-
-	data := C.GoBytes(mbuf, C.int(mlen))
-
-	C.free(mbuf)
-	C.free(cptbuf)
-	C.free(crbuf)
-
-	m.Ciphertext = string(data)
-
-	return &m, s.lastError()
-}
-
-// Decrypt decrypts a message using a sessions ratchet
-func (s Session) Decrypt(message *Message) ([]byte, error) {
-	mbuf := message.ciphertext()
-
-	tcmbuf := C.CBytes(mbuf)
-	cmbuf := C.CBytes(mbuf)
-
-	ptlen := C.olm_decrypt_max_plaintext_length(
-		s.ptr,
-		C.size_t(message.Type),
-		tcmbuf,
-		C.size_t(len(mbuf)),
-	)
-
-	err := s.lastError()
-	if err != nil {
-		return nil, err
-	}
-
-	mbuf = message.ciphertext()
-
-	ptbuf := C.malloc(ptlen)
-
-	ptlen = C.olm_decrypt(
-		s.ptr,
-		C.size_t(message.Type),
-		cmbuf,
-		C.size_t(len(mbuf)),
-		ptbuf,
-		ptlen,
-	)
-
-	data := C.GoBytes(ptbuf, C.int(ptlen))
-
-	C.free(ptbuf)
-	C.free(cmbuf)
-	C.free(tcmbuf)
-
-	err = s.lastError()
-	if err != nil {
-		return nil, err
-	}
-
-	return data[:ptlen], s.lastError()
-}
-
 // MatchesInboundSession checks if the PRE_KEY message is for this in-bound session. This can happen
 // if multiple messages are sent to this account before this account sends a message in reply.
 // returns true if the session matches
@@ -257,7 +140,7 @@ func (s Session) MatchesInboundSession(message *Message) (bool, error) {
 
 	cmbuf := C.CBytes(mbuf)
 
-	ret := C.olm_matches_inbound_session(
+	ret := C.self_olm_matches_inbound_session(
 		s.ptr,
 		cmbuf,
 		C.size_t(len(mbuf)),
@@ -269,6 +152,6 @@ func (s Session) MatchesInboundSession(message *Message) (bool, error) {
 }
 
 func (s Session) lastError() error {
-	errStr := C.GoString(C.olm_session_last_error(s.ptr))
+	errStr := C.GoString(C.self_olm_session_last_error(s.ptr))
 	return Error(errStr)
 }
