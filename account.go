@@ -2,9 +2,9 @@ package selfcrypto
 
 /*
 #cgo LDFLAGS: -lstdc++
-#cgo darwin LDFLAGS: -L/usr/local/lib/ -lself_omemo2
-#cgo linux LDFLAGS: -L/usr/lib/libself_omemo2.a -lself_omemo2
-#include <self_omemo2.h>
+#cgo darwin LDFLAGS: -L/usr/local/lib/ -lself_omemo
+#cgo linux LDFLAGS: -L/usr/lib/libself_omemo.a -lself_omemo
+#include <self_omemo.h>
 #include <stdlib.h>
 */
 import "C"
@@ -67,7 +67,7 @@ func AccountFromSeed(identity string, seed []byte) (*Account, error) {
 		return nil, err
 	}
 
-	curve25519SK, err := Ed25519SKToCurve25519(ed25519PK)
+	curve25519SK, err := Ed25519SKToCurve25519(ed25519SK)
 	if err != nil {
 		return nil, err
 	}
