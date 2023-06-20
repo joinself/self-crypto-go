@@ -25,8 +25,8 @@ func TestAccountCreateAccountFromSeed(t *testing.T) {
 	require.Nil(t, err)
 
 	account, err := AccountFromSeed("alice:1", sk.Seed())
-	require.NotNil(t, account)
 	require.Nil(t, err)
+	require.NotNil(t, account)
 
 	sig, err := account.Sign(testString)
 	require.Nil(t, err)

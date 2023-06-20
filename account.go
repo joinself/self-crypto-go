@@ -1,9 +1,10 @@
 package selfcrypto
 
 /*
-#cgo darwin LDFLAGS: -L/usr/local/lib/ -lself_olm
-#cgo linux LDFLAGS: -L/usr/lib/libself_olm.so -lself_olm
-#include <self_olm/olm.h>
+#cgo LDFLAGS: -lstdc++
+#cgo darwin LDFLAGS: -L/usr/local/lib/ -lself_omemo
+#cgo linux LDFLAGS: -L/usr/lib/libself_omemo.a -lself_omemo
+#include <self_omemo.h>
 #include <stdlib.h>
 */
 import "C"
@@ -19,12 +20,12 @@ type Account struct {
 }
 
 func newAccount(identity string) *Account {
-	alen := C.olm_account_size()
+	alen := C.self_olm_account_size()
 	buf := C.malloc(alen)
 
 	return &Account{
 		identity: identity,
-		ptr:      C.olm_account(buf),
+		ptr:      C.self_olm_account(buf),
 	}
 }
 
@@ -32,7 +33,7 @@ func newAccount(identity string) *Account {
 func NewAccount(identity string) (*Account, error) {
 	acc := newAccount(identity)
 
-	rlen := C.olm_create_account_random_length(acc.ptr)
+	rlen := C.self_olm_create_account_random_length(acc.ptr)
 	rbuf := make([]byte, rlen)
 	crbuf := C.CBytes(rbuf)
 
@@ -41,7 +42,7 @@ func NewAccount(identity string) (*Account, error) {
 		return nil, err
 	}
 
-	C.olm_create_account(
+	C.self_olm_create_account(
 		acc.ptr,
 		crbuf,
 		rlen,
@@ -56,15 +57,38 @@ func NewAccount(identity string) (*Account, error) {
 func AccountFromSeed(identity string, seed []byte) (*Account, error) {
 	acc := newAccount(identity)
 
-	sbuf := C.CBytes(seed)
+	ed25519PK, ed25519SK, err := Ed25519FromSeed(seed)
+	if err != nil {
+		return nil, err
+	}
 
-	C.olm_create_account_derrived_keys(
+	curve25519PK, err := Ed25519PKToCurve25519(ed25519PK)
+	if err != nil {
+		return nil, err
+	}
+
+	curve25519SK, err := Ed25519SKToCurve25519(ed25519SK)
+	if err != nil {
+		return nil, err
+	}
+
+	ed25519PKBuf := C.CBytes(ed25519PK)
+	ed25519SKBuf := C.CBytes(ed25519SK)
+	curve25519PKBuf := C.CBytes(curve25519PK)
+	curve25519SKBuf := C.CBytes(curve25519SK)
+
+	C.self_olm_import_account(
 		acc.ptr,
-		sbuf,
-		C.size_t(len(seed)),
+		ed25519SKBuf,
+		ed25519PKBuf,
+		curve25519SKBuf,
+		curve25519PKBuf,
 	)
 
-	C.free(sbuf)
+	C.free(ed25519PKBuf)
+	C.free(ed25519SKBuf)
+	C.free(curve25519PKBuf)
+	C.free(curve25519SKBuf)
 
 	return acc, acc.lastError()
 }
@@ -78,7 +102,7 @@ func AccountFromPickle(identity, key, pickle string) (*Account, error) {
 	ckbuf := C.CBytes(kbuf)
 	cpbuf := C.CBytes(pbuf)
 
-	C.olm_unpickle_account(
+	C.self_olm_unpickle_account(
 		acc.ptr,
 		ckbuf,
 		C.size_t(len(kbuf)),
@@ -95,11 +119,11 @@ func AccountFromPickle(identity, key, pickle string) (*Account, error) {
 // Pickle encodes and encrypts an account to a string safe format
 func (a Account) Pickle(key string) (string, error) {
 	kbuf := []byte(key)
-	plen := C.olm_pickle_account_length(a.ptr)
+	plen := C.self_olm_pickle_account_length(a.ptr)
 	pbuf := C.malloc(plen)
 	ckbuf := C.CBytes(kbuf)
 
-	C.olm_pickle_account(
+	C.self_olm_pickle_account(
 		a.ptr,
 		ckbuf,
 		C.size_t(len(kbuf)),
@@ -117,11 +141,11 @@ func (a Account) Pickle(key string) (string, error) {
 
 // Sign signs a message with the accounts ed25519 secret key
 func (a Account) Sign(message []byte) ([]byte, error) {
-	slen := C.olm_account_signature_length(a.ptr)
+	slen := C.self_olm_account_signature_length(a.ptr)
 	sbuf := C.malloc(slen)
 	cmbuf := C.CBytes(message)
 
-	C.olm_account_sign(
+	C.self_olm_account_sign(
 		a.ptr,
 		cmbuf,
 		C.size_t(len(message)),
@@ -139,19 +163,19 @@ func (a Account) Sign(message []byte) ([]byte, error) {
 
 // MaxOneTimeKeys returns the maximum amount of keys an account can hold
 func (a Account) MaxOneTimeKeys() int {
-	return int(C.olm_account_max_number_of_one_time_keys(a.ptr))
+	return int(C.self_olm_account_max_number_of_one_time_keys(a.ptr))
 }
 
 // MarkKeysAsPublished marks the current set of one time keys as published
 func (a Account) MarkKeysAsPublished() {
-	C.olm_account_mark_keys_as_published(a.ptr)
+	C.self_olm_account_mark_keys_as_published(a.ptr)
 }
 
 // GenerateOneTimeKeys Generate a number of new one-time keys.
 // If the total number of keys stored by this account exceeds
 // max_one_time_keys() then the old keys are discarded
 func (a Account) GenerateOneTimeKeys(count int) error {
-	rlen := C.olm_account_generate_one_time_keys_random_length(
+	rlen := C.self_olm_account_generate_one_time_keys_random_length(
 		a.ptr,
 		C.size_t(count),
 	)
@@ -164,7 +188,7 @@ func (a Account) GenerateOneTimeKeys(count int) error {
 		return err
 	}
 
-	C.olm_account_generate_one_time_keys(
+	C.self_olm_account_generate_one_time_keys(
 		a.ptr,
 		C.size_t(count),
 		crbuf,
@@ -180,10 +204,10 @@ func (a Account) GenerateOneTimeKeys(count int) error {
 func (a Account) OneTimeKeys() (*OneTimeKeys, error) {
 	var otk OneTimeKeys
 
-	olen := C.olm_account_one_time_keys_length(a.ptr)
+	olen := C.self_olm_account_one_time_keys_length(a.ptr)
 	obuf := C.malloc(olen)
 
-	C.olm_account_one_time_keys(
+	C.self_olm_account_one_time_keys(
 		a.ptr,
 		obuf,
 		olen,
@@ -203,7 +227,7 @@ func (a Account) OneTimeKeys() (*OneTimeKeys, error) {
 
 // RemoveOneTimeKeys removes a sessions one time keys from an account
 func (a Account) RemoveOneTimeKeys(s *Session) error {
-	C.olm_remove_one_time_keys(a.ptr, s.ptr)
+	C.self_olm_remove_one_time_keys(a.ptr, s.ptr)
 
 	return a.lastError()
 }
@@ -212,10 +236,10 @@ func (a Account) RemoveOneTimeKeys(s *Session) error {
 func (a Account) IdentityKeys() (*PublicKeys, error) {
 	var keys PublicKeys
 
-	olen := C.olm_account_identity_keys_length(a.ptr)
+	olen := C.self_olm_account_identity_keys_length(a.ptr)
 	obuf := C.malloc(olen)
 
-	C.olm_account_identity_keys(
+	C.self_olm_account_identity_keys(
 		a.ptr,
 		obuf,
 		olen,
@@ -234,6 +258,6 @@ func (a Account) IdentityKeys() (*PublicKeys, error) {
 }
 
 func (a Account) lastError() error {
-	errStr := C.GoString(C.olm_account_last_error(a.ptr))
+	errStr := C.GoString(C.self_olm_account_last_error(a.ptr))
 	return Error(errStr)
 }

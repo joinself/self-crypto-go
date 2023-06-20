@@ -15,11 +15,9 @@ jobs:
       - name: Setup environment
         run: |
           apt-get update
-          apt-get -y install curl libsodium-dev
-          curl https://download.joinself.com/olm/libself-olm_0.1.17_amd64.deb -o /tmp/libself-olm_0.1.17_amd64.deb
-          curl https://download.joinself.com/omemo/libself-omemo_0.1.3_amd64.deb -o /tmp/libself-omemo_0.1.3_amd64.deb
-          apt-get -y install /tmp/libself-olm_0.1.17_amd64.deb
-          apt-get -y install /tmp/libself-omemo_0.1.3_amd64.deb
+          apt-get -y install curl
+          curl https://github.com/joinself/self-omemo/releases/download/0.4.0/self-omemo_0.4.0_amd64.deb -Lo self-omemo_0.4.0_amd64.deb
+          dpkg -i ./self-omemo_0.4.0_amd64.deb
 
       - name: Test
         run: go test -v ./...
