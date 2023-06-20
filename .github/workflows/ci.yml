@@ -16,7 +16,7 @@ jobs:
         run: |
           apt-get update
           apt-get -y install curl
-          curl https://github.com/joinself/self-omemo/releases/download/0.4.0/self-omemo_0.4.0_amd64.deb -o self-omemo_0.4.0_amd64.deb
+          curl https://github.com/joinself/self-omemo/releases/download/0.4.0/self-omemo_0.4.0_amd64.deb -Lo self-omemo_0.4.0_amd64.deb
           dpkg -i ./self-omemo_0.4.0_amd64.deb
 
       - name: Test
