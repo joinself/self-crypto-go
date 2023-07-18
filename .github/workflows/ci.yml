@@ -1,23 +1,26 @@
 name: CI
 
-on: [push, workflow_dispatch]
+on: 
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  license-compliance:
+    uses: joinself/github-workflows-public/.github/workflows/license-compliance.yml@main
+    secrets: inherit
+  secret-scan:
+    uses: joinself/github-workflows-public/.github/workflows/secret-scan.yml@main
+    with:
+      continue-on-error: true
+    secrets: inherit
   test:
-    runs-on: ubuntu-latest
-
-    container:
-      image: golang:1.16.2
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Setup environment
-        run: |
-          apt-get update
-          apt-get -y install curl
-          curl https://github.com/joinself/self-omemo/releases/download/0.4.0/self-omemo_0.4.0_amd64.deb -Lo self-omemo_0.4.0_amd64.deb
-          dpkg -i ./self-omemo_0.4.0_amd64.deb
-
-      - name: Test
-        run: go test -v ./...
+    needs: [license-compliance, secret-scan]
+    uses: ./.github/workflows/test.yml
+    secrets: inherit
