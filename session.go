@@ -59,7 +59,7 @@ func CreateOutboundSession(acc *Account, recipient, identityKey, oneTimeKey stri
 	C.free(cotkbuf)
 	C.free(crbuf)
 
-	return sess, sess.lastError()
+	return sess, sess.LastError()
 }
 
 // CreateInboundSession creates an inbound session for receiving messages from a senders outbound session
@@ -79,7 +79,7 @@ func CreateInboundSession(acc *Account, sender string, oneTimeKeyMessage *Messag
 
 	C.free(cmbuf)
 
-	return sess, sess.lastError()
+	return sess, sess.LastError()
 }
 
 // SessionFromPickle loads an encoded session from a pickle
@@ -104,7 +104,7 @@ func SessionFromPickle(recipient, key, pickle string) (*Session, error) {
 	C.free(ckbuf)
 	C.free(cpbuf)
 
-	return sess, sess.lastError()
+	return sess, sess.LastError()
 }
 
 // Pickle encode the current session
@@ -129,7 +129,7 @@ func (s Session) Pickle(key string) (string, error) {
 	C.free(pbuf)
 	C.free(ckbuf)
 
-	return string(data), s.lastError()
+	return string(data), s.LastError()
 }
 
 // MatchesInboundSession checks if the PRE_KEY message is for this in-bound session. This can happen
@@ -148,10 +148,10 @@ func (s Session) MatchesInboundSession(message *Message) (bool, error) {
 
 	C.free(cmbuf)
 
-	return ret == 1, s.lastError()
+	return ret == 1, s.LastError()
 }
 
-func (s Session) lastError() error {
+func (s Session) LastError() error {
 	errStr := C.GoString(C.self_olm_session_last_error(s.ptr))
 	return Error(errStr)
 }
