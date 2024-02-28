@@ -35,12 +35,13 @@ func NewAccount(identity string) (*Account, error) {
 
 	rlen := C.self_olm_create_account_random_length(acc.ptr)
 	rbuf := make([]byte, rlen)
-	crbuf := C.CBytes(rbuf)
 
 	_, err := rand.Read(rbuf)
 	if err != nil {
 		return nil, err
 	}
+
+	crbuf := C.CBytes(rbuf)
 
 	C.self_olm_create_account(
 		acc.ptr,
@@ -181,12 +182,13 @@ func (a Account) GenerateOneTimeKeys(count int) error {
 	)
 
 	rbuf := make([]byte, rlen)
-	crbuf := C.CBytes(rbuf)
 
 	_, err := rand.Read(rbuf)
 	if err != nil {
 		return err
 	}
+
+	crbuf := C.CBytes(rbuf)
 
 	C.self_olm_account_generate_one_time_keys(
 		a.ptr,
